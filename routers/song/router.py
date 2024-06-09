@@ -118,7 +118,7 @@ async def delete_song_by_id(song_id: int):
     return HTTPException(status_code=500, detail='Возникли проблемы при удалении')
 
 
-#TODO По валидации дошел доседа
+#По валидации дошел доседа
 
 @song_router.get('/categories/', tags=['category'])
 async def get_all_categories() -> list[song_schemes.CategorySongResponse]:
