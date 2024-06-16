@@ -4,8 +4,10 @@ from . import models
 from .connection import db_session
 
 from pydantic import BaseModel
+
 from pydantic_schemes import schemes
-from pydantic_schemes.SongSchemes import schemes as song_schemes
+from pydantic_schemes.Song import schemes as song_schemes
+from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload, DeclarativeBase
@@ -49,6 +51,7 @@ class BaseCruds:
                 return False
 
             if encode:
+                print(jsonable_encoder(data))
                 return schema.model_validate(jsonable_encoder(data))
 
             return data
@@ -113,7 +116,8 @@ class SongCruds:
     @staticmethod
     async def search_all_songs_by_title(title_song: str) -> list[song_schemes.SongSearch] | bool:
 
-        all_songs = await BaseCruds.get_all_data(model=models.Songs)
+        all_songs = await BaseCruds.get_all_data(model=models.Songs,
+                                                 schema=song_schemes.SongSearch)
         result_songs = []
 
         for song in all_songs:
@@ -137,7 +141,7 @@ class SongCruds:
 class PiggyBankCruds:
 
     @staticmethod
-    async def get_game_by_group_type(group_id: int, type_id: int) -> list[dict]:
+    async def get_game_by_group_type(group_id: int, type_id: int) -> list[pb_schemes.PiggyBankGameResponse]:
 
         async with db_session() as session:
             query = select(models.PiggyBankGames).where(
@@ -152,12 +156,12 @@ class PiggyBankCruds:
             result = await session.execute(query)
             data = result.scalars().all()
 
-            return data
+            return [pb_schemes.PiggyBankGameResponse.model_validate(jsonable_encoder(item)) for item in data]
 
     @staticmethod
-    async def insert_game_transaction(data: schemes.PiggyBankGame):
+    async def insert_game_transaction(game: pb_schemes.PiggyBankGameCreate):
 
-        data = dict(data)
+        data = dict(game)
 
         game_data = {
             'title': data['title'],
@@ -194,7 +198,7 @@ class PiggyBankCruds:
     async def insert_ktd_or_legend_transaction(
             item_model,
             item_type: Literal['ktd', 'legend'],
-            data: schemes.PiggyBankBaseStructure) -> bool:
+            data: pb_schemes.PiggyBankBaseStructureCreate) -> bool:
 
         data = dict(data)
 
@@ -203,8 +207,6 @@ class PiggyBankCruds:
             'description': data['description'],
             'file_path': data['file_path']
         }
-
-
 
         group_id = data['group_id']
 
@@ -232,7 +234,9 @@ class PiggyBankCruds:
                     return False
 
     @staticmethod
-    async def get_legends_or_krd_by_group(item_model, mtm_model, group_id: int) -> list[models.PiggyBankLegends | models.PiggyBankKTD]:
+    async def get_legends_or_krd_by_group(item_model,
+                                          mtm_model,
+                                          group_id: int) -> list[pb_schemes.PiggyBankBaseStructureResponse]:
 
         async with db_session() as session:
             query = select(item_model).where(
@@ -242,4 +246,4 @@ class PiggyBankCruds:
             result = await session.execute(query)
             data = result.scalars().all()
 
-            return data
+            return [pb_schemes.PiggyBankBaseStructureResponse.model_validate(jsonable_encoder(item)) for item in data]
