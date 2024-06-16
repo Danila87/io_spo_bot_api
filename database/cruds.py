@@ -83,7 +83,7 @@ class BaseCruds:
                     return False
 
                 return True
-
+            print(jsonable_encoder(data))
             return [schema.model_validate(jsonable_encoder(item)) for item in data]
 
     @staticmethod

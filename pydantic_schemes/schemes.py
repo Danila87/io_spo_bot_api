@@ -10,17 +10,6 @@ class User(BaseModel):
     nickname: str
 
 
-class MethodicalChapter(BaseModel):
-
-    title: str
-    chapter_id: int
-
-
-class MethodicalSection(BaseModel):
-
-    title: str
-
-
 class PiggyBankGroup(BaseModel):
 
     title: str
