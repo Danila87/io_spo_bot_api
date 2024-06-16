@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, Form, File
 from fastapi.responses import FileResponse
 
-from pydantic_schemes.MethodicalBookSchemes import schemes as mb_schemes
+from pydantic_schemes.MethodicalBook import schemes as mb_schemes
 
 from database import models
 from database.cruds import BaseCruds

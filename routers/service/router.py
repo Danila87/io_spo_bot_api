@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from pydantic_schemes import schemes
-from pydantic_schemes.SongSchemes import schemes as song_schemes
+from pydantic_schemes.Song import schemes as song_schemes
 
 from database import models
 from database.cruds import BaseCruds
