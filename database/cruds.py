@@ -33,7 +33,10 @@ class BaseCruds:
             return [schema.model_validate(jsonable_encoder(item)) for item in data]
 
     @staticmethod
-    async def get_data_by_id(model, model_id: int, encode: bool = True, ) -> dict | bool:
+    async def get_data_by_id(model,
+                             model_id: int,
+                             schema: Type[BaseModel],
+                             encode: bool = True, ) -> any_schema | bool:
 
         async with db_session() as session:
 
@@ -46,7 +49,7 @@ class BaseCruds:
                 return False
 
             if encode:
-                return jsonable_encoder(data)
+                return schema.model_validate(jsonable_encoder(data))
 
             return data
 
@@ -62,7 +65,10 @@ class BaseCruds:
             return True
 
     @staticmethod
-    async def get_data_by_filter(model, verify: bool = False, **kwargs) -> list[dict] | bool:
+    async def get_data_by_filter(model,
+                                 schema: Type[BaseModel],
+                                 verify: bool = False,
+                                 **kwargs) -> list[any_schema] | bool:
 
         async with db_session() as session:
 
@@ -78,7 +84,7 @@ class BaseCruds:
 
                 return True
 
-            return jsonable_encoder(data)
+            return [schema.model_validate(jsonable_encoder(item)) for item in data]
 
     @staticmethod
     async def insert_data(model, **kwargs) -> bool:
@@ -94,7 +100,7 @@ class BaseCruds:
 class SongCruds:
 
     @staticmethod
-    async def get_all_songs_by_category() -> list[dict]:
+    async def get_all_songs_by_category() -> list[song_schemes.SongsByCategory]:
 
         async with db_session() as session:
             query = select(models.CategorySong).options(selectinload(models.CategorySong.songs))
@@ -102,7 +108,7 @@ class SongCruds:
             result = await session.execute(query)
             result = result.scalars().all()
 
-            return jsonable_encoder(result)
+            return [song_schemes.SongsByCategory.model_validate(jsonable_encoder(item)) for item in result]
 
     @staticmethod
     async def search_all_songs_by_title(title_song: str) -> list[song_schemes.SongSearch] | bool:

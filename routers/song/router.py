@@ -11,8 +11,7 @@ song_router = APIRouter(prefix='/song', tags=['all_song_methods'])
 
 
 @song_router.get('/songs/by_category', tags=['song', 'category'])
-async def get_songs_by_category() -> list[dict]:
-
+async def get_songs_by_category() -> list[song_schemes.SongsByCategory]:
     """
     Получаем категорию и все песни которые ей принадлежат
     :return: Songs - Список категорий, которые в свою очередь содержат список песен
@@ -25,7 +24,6 @@ async def get_songs_by_category() -> list[dict]:
 
 @song_router.get('/songs', tags=['song'])
 async def get_songs() -> list[song_schemes.SongResponse]:
-
     """
     Получаем все песни
     :return: Список словарей всех песен
@@ -59,12 +57,11 @@ async def insert_song(song: song_schemes.Song):
     :return: HTTPException с статус кодом и detail
     """
 
-    await verify_data(
-        schema=song,
-        model=models.Songs,
-        error_msg='Такая песня уже существует',
-        title=song.title
-    )
+    await verify_data(schema=song,
+                      model=models.Songs,
+                      error_msg='Такая песня уже существует',
+                      title=song.title
+                      )
 
     if await BaseCruds.insert_data(model=models.Songs,
                                    title=song.title,
@@ -72,9 +69,11 @@ async def insert_song(song: song_schemes.Song):
                                    text=song.text,
                                    file_path=song.file_path,
                                    category=song.category):
-        return HTTPException(status_code=201, detail='Песня успешно добавлена!')
+        return HTTPException(status_code=201,
+                             detail='Песня успешно добавлена!')
 
-    return HTTPException(status_code=400, detail='Произошла ошибка на сервере')
+    return HTTPException(status_code=400,
+                         detail='Произошла ошибка на сервере')
 
 
 @song_router.get('/{song_id}', tags=['song'])
@@ -85,10 +84,13 @@ async def get_song(song_id: int) -> song_schemes.SongResponse | bool:
     :return: HTTPException в случае если песни нет либо song если песня найдена
     """
 
-    song = await BaseCruds.get_data_by_id(model=models.Songs, model_id=song_id)
+    song = await BaseCruds.get_data_by_id(model=models.Songs,
+                                          model_id=song_id,
+                                          schema=song_schemes.SongResponse)
 
     if not song:
-        raise HTTPException(status_code=400, detail='Песни не существует')
+        raise HTTPException(status_code=400,
+                            detail='Песни не существует')
 
     return song
 
@@ -112,13 +114,14 @@ async def delete_song_by_id(song_id: int):
     :return: HTTPException с статус кодом и detail
     """
 
-    if await BaseCruds.delete_data_by_id(model=models.Songs, model_id=song_id):
-        return HTTPException(status_code=200, detail='Песня успешно удалена')
+    if await BaseCruds.delete_data_by_id(model=models.Songs,
+                                         model_id=song_id):
+        return HTTPException(status_code=200,
+                             detail='Песня успешно удалена')
 
-    return HTTPException(status_code=500, detail='Возникли проблемы при удалении')
+    return HTTPException(status_code=500,
+                         detail='Возникли проблемы при удалении')
 
-
-#По валидации дошел доседа
 
 @song_router.get('/categories/', tags=['category'])
 async def get_all_categories() -> list[song_schemes.CategorySongResponse]:
@@ -127,7 +130,8 @@ async def get_all_categories() -> list[song_schemes.CategorySongResponse]:
     :return: categories - Список словарей категорий
     """
 
-    categories = await BaseCruds.get_all_data(model=models.CategorySong)
+    categories = await BaseCruds.get_all_data(model=models.CategorySong,
+                                              schema=song_schemes.CategorySongResponse)
 
     return categories
 
@@ -140,15 +144,17 @@ async def insert_category(category: song_schemes.CategorySong):
     :return: HTTPException с статус кодом и detail
     """
 
-    await verify_data(
-        schema=category,
-        model=models.Songs,
-        error_msg='Такая категория уже существует',
-        category=category.category
-    )
+    await verify_data(schema=category,
+                      model=models.Songs,
+                      error_msg='Такая категория уже существует',
+                      category=category.category
+                      )
 
-    if await BaseCruds.insert_data(model=models.CategorySong, category=category.category):
-        return HTTPException(status_code=201, detail='Категория успешно добавлена')
+    if await BaseCruds.insert_data(model=models.CategorySong,
+                                   category=category.category):
+
+        return HTTPException(status_code=201,
+                             detail='Категория успешно добавлена')
 
 
 @song_router.get('/categories/{category_id}', tags=['category'])
@@ -159,7 +165,9 @@ async def get_category_by_id(category_id: int) -> song_schemes.CategorySongRespo
     :return: category - словарь категории
     """
 
-    category = await BaseCruds.get_data_by_id(model=models.CategorySong, model_id=category_id)
+    category = await BaseCruds.get_data_by_id(model=models.CategorySong,
+                                              model_id=category_id,
+                                              schema=song_schemes.CategorySongResponse)
 
     return category
 
@@ -183,15 +191,18 @@ async def delete_category_by_id(category_id: int):
     :return: HTTPException - Результат удаления. Возвращает статус код и detail
     """
 
-    if await BaseCruds.delete_data_by_id(model=models.CategorySong, model_id=category_id):
-        return HTTPException(status_code=200, detail='Категория успешно удалена')
+    if await BaseCruds.delete_data_by_id(model=models.CategorySong,
+                                         model_id=category_id):
 
-    return HTTPException(status_code=500, detail='Произошла ошибка на сервере')
+        return HTTPException(status_code=200,
+                             detail='Категория успешно удалена')
+
+    return HTTPException(status_code=500,
+                         detail='Произошла ошибка на сервере')
 
 
 @song_router.get('/categories/type_categories/all', tags=['category'])
 async def get_type_categories() -> list[song_schemes.CategoryTypeResponse]:
-
     """
     Получаем основные типы категорий
     """
@@ -202,11 +213,13 @@ async def get_type_categories() -> list[song_schemes.CategoryTypeResponse]:
 
 @song_router.get('/type_category/{type_category_id}', tags=['category'])
 async def get_categories_by_type(type_category_id: int) -> list[song_schemes.CategorySongResponse]:
-
-    return await BaseCruds.get_data_by_filter(model=models.CategorySong, type_category=type_category_id)
+    return await BaseCruds.get_data_by_filter(model=models.CategorySong,
+                                              schema=song_schemes.CategorySongResponse,
+                                              type_category=type_category_id, )
 
 
 @song_router.get('/by_category/{category_id}', tags=['category'])
 async def get_songs_by_category(category_id: int) -> list[song_schemes.SongResponse]:
-
-    return await BaseCruds.get_data_by_filter(model=models.Songs, category=category_id)
+    return await BaseCruds.get_data_by_filter(model=models.Songs,
+                                              schema=song_schemes.SongResponse,
+                                              category=category_id)

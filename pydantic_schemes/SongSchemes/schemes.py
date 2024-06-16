@@ -30,7 +30,7 @@ class Song(BaseModel):
 class SongResponse(Song):
 
     """
-    Полная модель созданной песни
+    Полная модель созданной песни. Наследуется от Song.
     """
 
     id: int
@@ -65,3 +65,7 @@ class CategoryType(BaseModel):
 class CategoryTypeResponse(CategoryType):
 
     id: int
+
+
+class SongsByCategory(CategorySongResponse):
+    songs: list[SongResponse]
