@@ -25,7 +25,8 @@ async def get_groups() -> list[pb_schemes.PiggyBankGroupResponse]:
 async def create_group(group: pb_schemes.PiggyBankGroup):
 
     await verify_data(
-        schema=group,
+        data=group,
+        schema=pb_schemes.PiggyBankGroup,
         model=models.PiggyBankGroups,
         error_msg='Такая группа уже существует',
         title=group.title
@@ -52,7 +53,8 @@ async def get_types_game() -> list[pb_schemes.PiggyBankTypeGameResponse]:
 async def create_type_game(type_game: pb_schemes.PiggyBankTypeGame):
 
     await verify_data(
-        schema=type_game,
+        data=type_game,
+        schema=pb_schemes.PiggyBankTypeGame,
         model=models.PiggyBankTypesGame,
         error_msg='Такой тип уже существует',
         title=type_game.title
@@ -108,10 +110,12 @@ async def insert_game(
         type_id: Annotated[int, Form()]
 ):
     try:
-        file_path = file_work.save_file('database/files_data/piggy_bank_data', file=file)
+        file_path = file_work.save_file('database/files_data/piggy_bank_data',
+                                        file=file)
 
     except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(status_code=500,
+                            detail=str(error))
 
     game = pb_schemes.PiggyBankGameCreate.model_validate({
         'title': title,
@@ -122,7 +126,8 @@ async def insert_game(
     })
 
     await verify_data(
-        schema=game,
+        data=game,
+        schema=pb_schemes.PiggyBankGameCreate,
         model=models.PiggyBankGames,
         error_msg='Такая игра уже существует',
         title=game.title
@@ -166,7 +171,8 @@ async def create_legend(
     })
 
     await verify_data(
-        schema=data,
+        data=data,
+        schema=pb_schemes.PiggyBankBaseStructureCreate,
         model=models.PiggyBankLegends,
         error_msg='Такая легенда уже существует',
         title=data.title
@@ -249,7 +255,8 @@ async def create_ktd(
     })
 
     await verify_data(
-        schema=data,
+        data=data,
+        schema=pb_schemes.PiggyBankBaseStructureCreate,
         model=models.PiggyBankKTD,
         error_msg='Такое КТД уже существует',
         title=data.title

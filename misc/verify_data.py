@@ -1,21 +1,27 @@
 from fastapi import HTTPException
 
 from pydantic import BaseModel
+from typing import Type
 
 from database.cruds import BaseCruds
 
-from functools import wraps
 
-
-async def verify_data(schema: BaseModel,
+async def verify_data(data: BaseModel,
                       model,
+                      schema: Type[BaseModel],
                       error_msg: str,
                       **filter_params
                       ) -> BaseModel:
-    if await BaseCruds.get_data_by_filter(model=model, verify=True, **filter_params):
-        raise HTTPException(status_code=400, detail=error_msg)
 
-    return schema
+    if await BaseCruds.get_data_by_filter(model=model,
+                                          schema=schema,
+                                          verify=True,
+                                          **filter_params):
+
+        raise HTTPException(status_code=400,
+                            detail=error_msg)
+
+    return data
 
 
 '''

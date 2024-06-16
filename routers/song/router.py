@@ -141,11 +141,12 @@ async def insert_category(category: song_schemes.CategorySong):
     """
     Добавляем категорию. Сначала проходит верификацию на отсутствие такой же категории в бд
     :param category: Словарь категории
-    :return: HTTPException с статус кодом и detail
+    :return: HTTPException со статус кодом и detail
     """
 
-    await verify_data(schema=category,
-                      model=models.Songs,
+    await verify_data(data=category,
+                      schema=song_schemes.CategorySong,
+                      model=models.CategorySong,
                       error_msg='Такая категория уже существует',
                       category=category.category
                       )

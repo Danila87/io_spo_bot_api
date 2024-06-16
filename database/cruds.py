@@ -117,18 +117,18 @@ class SongCruds:
     async def search_all_songs_by_title(title_song: str) -> list[song_schemes.SongSearch] | bool:
 
         all_songs = await BaseCruds.get_all_data(model=models.Songs,
-                                                 schema=song_schemes.SongSearch)
+                                                 schema=song_schemes.SongResponse)
         result_songs = []
 
         for song in all_songs:
 
-            if fuzz.WRatio(song['title'], title_song) < 75:
+            if fuzz.WRatio(song.title, title_song) < 75:
                 continue
 
             result_songs.append(
                 song_schemes.SongSearch.model_validate({
-                    'id_song': song['id'],
-                    'title_song': song['title']
+                    'id_song': song.id,
+                    'title_song': song.title
                 })
             )
 

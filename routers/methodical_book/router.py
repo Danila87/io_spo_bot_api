@@ -7,7 +7,7 @@ from database import models
 from database.cruds import BaseCruds
 
 from typing import Annotated
-from misc import file_work
+from misc import file_work, verify_data
 
 
 methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_book'])
@@ -22,6 +22,14 @@ async def get_sections_methodical_book() -> list[mb_schemes.MethodicalSectionsRe
 
 @methodical_book_router.post('/sections/', tags=['methodical_book'])
 async def create_section_methodical_book(data: mb_schemes.MethodicalSection):
+
+    await verify_data.verify_data(
+        data=data,
+        schema=mb_schemes.MethodicalSection,
+        model=models.SectionsMethodologicalBook,
+        error_msg='Такая секция уже существует',
+        title=data.title
+    )
 
     if await BaseCruds.insert_data(model=models.SectionsMethodologicalBook,
                                    title=data.title):
