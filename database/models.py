@@ -42,6 +42,17 @@ class TypeCategory(Base):
     rel_category = relationship('CategorySong', back_populates='rel_type_category')
 
 
+# class CategorySongHierarchy(Base):
+#
+#     __tablename__ = 'CategorySongHierarchy'
+#
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String(50))
+#     parent_id = Column(Integer, nullable=True)
+#
+#     rel_category = relationship('Songs', back_populates='rel_category')
+
+
 class Requests(Base):
 
     __tablename__ = 'Requests'
@@ -114,7 +125,24 @@ class ChaptersMethodologicalBook(Base):
     rel_section = relationship('SectionsMethodologicalBook', back_populates='rel_chapters')
 
 
+# class SectionsMethodicalBookHierarchy(Base):
+#
+#     __tablename__ = 'SectionsMethodicalBookHierarchy'
+#
+#     id = Column(Integer, primary_key=True)
+#     parent_id = Column(Integer, nullable=True)
+#
+#     title = Column(String(50))
+#     file_path = Column(String(300), nullable=True)
+#
+#     rel_section = relationship('SectionsMethodologicalBook', back_populates='rel_chapters')
+
+
 class PiggyBankGroups(Base):
+
+    """
+    Чет я заебланил и обозвал по странному. Таблица предназначена для хранения возрастов детей или групп
+    """
 
     __tablename__ = 'PiggyBankGroups'
 
@@ -151,6 +179,9 @@ class PiggyBankGames(Base):
 
 
 class PiggyBankGroupForGame(Base):
+    """
+    Many to Many таблица для связи возраста и игры
+    """
 
     __tablename__ = 'PiggyBankGroupForGame'
 
@@ -164,6 +195,10 @@ class PiggyBankGroupForGame(Base):
 
 
 class PiggyBankTypesGamesForGame(Base):
+
+    """
+    Many to Many таблица для связи типа игры и игры
+    """
 
     __tablename__ = 'PiggyBankTypesGamesForGame'
 
@@ -192,6 +227,10 @@ class PiggyBankLegends(Base):
 
 class PiggyBankGroupsForLegend(Base):
 
+    """
+    Many to Many таблица для связи возраста и легенды
+    """
+
     __tablename__ = 'PiggyBankGroupsForLegend'
 
     id = Column(Integer, primary_key=True)
@@ -218,6 +257,10 @@ class PiggyBankKTD(Base):
 
 
 class PiggyBankGroupsForKTD(Base):
+
+    """
+    Many to Many таблица для связи возраста и КТД
+    """
 
     __tablename__ = 'PiggyBankGroupsForKTD'
 
