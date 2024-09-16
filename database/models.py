@@ -17,40 +17,18 @@ class Songs(Base):
     file_path = Column(String, nullable=True)
     category = Column(Integer, ForeignKey('CategorySong.id', ondelete='SET NULL'), nullable=True)
 
-    rel_category = relationship('CategorySong', back_populates='songs')
+    rel_category = relationship('CategorySong', back_populates='rel_songs')
 
 
-class CategorySong(Base):
+class CategorySongHierarchy(Base):
 
     __tablename__ = 'CategorySong'
 
     id = Column(Integer, primary_key=True)
-    category = Column(String(50))
-    type_category = Column(Integer, ForeignKey('TypeCategory.id', ondelete='SET NULL'))
-
-    songs = relationship('Songs', back_populates='rel_category')
-    rel_type_category = relationship('TypeCategory', back_populates='rel_category')
-
-
-class TypeCategory(Base):
-
-    __tablename__ = 'TypeCategory'
-
-    id = Column(Integer, primary_key=True)
     name = Column(String(50))
+    parent_id = Column(Integer, nullable=True)
 
-    rel_category = relationship('CategorySong', back_populates='rel_type_category')
-
-
-# class CategorySongHierarchy(Base):
-#
-#     __tablename__ = 'CategorySongHierarchy'
-#
-#     id = Column(Integer, primary_key=True)
-#     name = Column(String(50))
-#     parent_id = Column(Integer, nullable=True)
-#
-#     rel_category = relationship('Songs', back_populates='rel_category')
+    rel_songs = relationship('Songs', back_populates='rel_category')
 
 
 class Requests(Base):
@@ -103,39 +81,15 @@ class Reviews(Base):
     users = relationship('Users', back_populates='reviews')
 
 
-class SectionsMethodologicalBook(Base):
+class MethodicalBookChapters(Base):
 
-    __tablename__ = 'SectionsMethodologicalBook'
+    __tablename__ = 'MethodicalBookChapters'
 
     id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, nullable=True)
+
     title = Column(String(50))
-
-    rel_chapters = relationship('ChaptersMethodologicalBook', back_populates='rel_section')
-
-
-class ChaptersMethodologicalBook(Base):
-
-    __tablename__ = 'ChaptersMethodologicalBook'
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String(100))
-    section_id = Column(Integer, ForeignKey('SectionsMethodologicalBook.id'))
-    file_path = Column(String(300))
-
-    rel_section = relationship('SectionsMethodologicalBook', back_populates='rel_chapters')
-
-
-# class SectionsMethodicalBookHierarchy(Base):
-#
-#     __tablename__ = 'SectionsMethodicalBookHierarchy'
-#
-#     id = Column(Integer, primary_key=True)
-#     parent_id = Column(Integer, nullable=True)
-#
-#     title = Column(String(50))
-#     file_path = Column(String(300), nullable=True)
-#
-#     rel_section = relationship('SectionsMethodologicalBook', back_populates='rel_chapters')
+    file_path = Column(String(300), nullable=True)
 
 
 class PiggyBankGroups(Base):
