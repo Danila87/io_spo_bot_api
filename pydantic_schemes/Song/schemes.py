@@ -42,14 +42,19 @@ class CategorySong(BaseModel):
     Модель для создания категории
     """
 
-    category: str
+    name: str
+    parent_id: int | None = None
 
 
 class CategorySongResponse(CategorySong):
 
-    id: int
-    type_category: int | None
 
+    """
+    Модель готовой категории
+    """
+
+    id: int
+    name: str
 
 class SongSearch(BaseModel):
 
@@ -57,15 +62,5 @@ class SongSearch(BaseModel):
     title_song: str
 
 
-class CategoryType(BaseModel):
-
-    name: str
-
-
-class CategoryTypeResponse(CategoryType):
-
-    id: int
-
-
 class SongsByCategory(CategorySongResponse):
-    songs: list[SongResponse]
+    rel_songs: list[SongResponse]

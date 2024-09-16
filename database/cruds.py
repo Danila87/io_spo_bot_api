@@ -106,7 +106,7 @@ class SongCruds:
     async def get_all_songs_by_category() -> list[song_schemes.SongsByCategory]:
 
         async with db_session() as session:
-            query = select(models.CategorySong).options(selectinload(models.CategorySong.songs))
+            query = select(models.CategorySong).options(selectinload(models.CategorySong.rel_songs))
 
             result = await session.execute(query)
             result = result.scalars().all()

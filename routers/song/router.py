@@ -148,11 +148,14 @@ async def insert_category(category: song_schemes.CategorySong):
                       schema=song_schemes.CategorySong,
                       model=models.CategorySong,
                       error_msg='Такая категория уже существует',
-                      category=category.category
+                      name=category.name
                       )
 
-    if await BaseCruds.insert_data(model=models.CategorySong,
-                                   category=category.category):
+    if await BaseCruds.insert_data(
+            model=models.CategorySong,
+            name=category.name,
+            parent_id=category.parent_id
+    ):
 
         return HTTPException(status_code=201,
                              detail='Категория успешно добавлена')
@@ -200,23 +203,6 @@ async def delete_category_by_id(category_id: int):
 
     return HTTPException(status_code=500,
                          detail='Произошла ошибка на сервере')
-
-
-@song_router.get('/categories/type_categories/all', tags=['category'])
-async def get_type_categories() -> list[song_schemes.CategoryTypeResponse]:
-    """
-    Получаем основные типы категорий
-    """
-
-    return await BaseCruds.get_all_data(model=models.TypeCategory,
-                                        schema=song_schemes.CategoryTypeResponse)
-
-
-@song_router.get('/type_category/{type_category_id}', tags=['category'])
-async def get_categories_by_type(type_category_id: int) -> list[song_schemes.CategorySongResponse]:
-    return await BaseCruds.get_data_by_filter(model=models.CategorySong,
-                                              schema=song_schemes.CategorySongResponse,
-                                              type_category=type_category_id, )
 
 
 @song_router.get('/by_category/{category_id}', tags=['category'])

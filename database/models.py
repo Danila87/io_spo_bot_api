@@ -20,7 +20,7 @@ class Songs(Base):
     rel_category = relationship('CategorySong', back_populates='rel_songs')
 
 
-class CategorySongHierarchy(Base):
+class CategorySong(Base):
 
     __tablename__ = 'CategorySong'
 
