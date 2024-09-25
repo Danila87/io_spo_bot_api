@@ -123,18 +123,23 @@ async def delete_song_by_id(song_id: int):
                          detail='Возникли проблемы при удалении')
 
 
-@song_router.get('/categories/', tags=['category'])
-async def get_all_categories() -> list[song_schemes.CategorySongResponse]:
-    """
-    Получаем все категории
-    :return: categories - Список словарей категорий
-    """
+@song_router.get('/categories/mains', tags=['category'])
+async def get_main_chapters() -> list[song_schemes.CategorySongResponse]:
 
-    categories = await BaseCruds.get_all_data(model=models.CategorySong,
-                                              schema=song_schemes.CategorySongResponse)
+    return await BaseCruds.get_data_by_filter(
+        model=models.CategorySong,
+        schema=song_schemes.CategorySongResponse,
+        parent_id=None
+    )
 
-    return categories
+@song_router.get('/categories/get_childs/{id_category}', tags=['category'])
+async def get_child_chapters(id_category: int) -> list[song_schemes.CategorySongResponse]:
 
+    return await BaseCruds.get_data_by_filter(
+        model=models.CategorySong,
+        schema=song_schemes.CategorySongResponse,
+        parent_id=id_category
+    )
 
 @song_router.post('/category', tags=['category'])
 async def insert_category(category: song_schemes.CategorySong):
