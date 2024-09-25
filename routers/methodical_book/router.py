@@ -36,6 +36,14 @@ async def create_chapter_methodical_book(title: Annotated[str, Form()],
                                          parent_id: Annotated[int, Form()],
                                          file: Annotated[UploadFile, File()]):
 
+    if (data := await BaseCruds.get_data_by_filter(
+        model=models.MethodicalBookChapters,
+        schema=mb_schemes.MethodicalChaptersResponse,
+        verify=True,
+        title=title,
+    )) is True:
+        return 'Такая запись уже существует'
+
     if file_work.save_file(path='database/files_data/methodical_data/',
                            file=file):
 
