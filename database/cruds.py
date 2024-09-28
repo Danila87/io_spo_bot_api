@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from . import models
-from .connection import db_session
+from .connection import postgres_db
 
 from pydantic import BaseModel
 
@@ -26,7 +26,7 @@ class BaseCruds:
     @staticmethod
     async def get_all_data(model: Type[DeclarativeBase], schema: Type[BaseModel]) -> list[any_schema]:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             query = select(model)
             result = await session.execute(query)
 
@@ -40,7 +40,7 @@ class BaseCruds:
                              schema: Type[BaseModel],
                              encode: bool = True, ) -> any_schema | bool:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
 
             query = select(model).filter(model.id == model_id)
 
@@ -59,7 +59,7 @@ class BaseCruds:
     @staticmethod
     async def delete_data_by_id(model, model_id: int) -> bool:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             data = await BaseCruds.get_data_by_id(model=model, model_id=model_id, encode=False)
 
             await session.delete(data)
@@ -73,7 +73,7 @@ class BaseCruds:
                                  verify: bool = False,
                                  **kwargs) -> list[any_schema] | bool:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
 
             query = select(model).filter_by(**kwargs)
             result = await session.execute(query)
@@ -91,7 +91,7 @@ class BaseCruds:
 
     @staticmethod
     async def insert_data(model, **kwargs) -> bool:
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             data = model(**kwargs)
             session.add(data)
 
@@ -105,7 +105,7 @@ class SongCruds:
     @staticmethod
     async def get_all_songs_by_category() -> list[song_schemes.SongsByCategory]:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             query = select(models.CategorySong).options(selectinload(models.CategorySong.rel_songs))
 
             result = await session.execute(query)
@@ -143,7 +143,7 @@ class PiggyBankCruds:
     @staticmethod
     async def get_game_by_group_type(group_id: int, type_id: int) -> list[pb_schemes.PiggyBankGameResponse]:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             query = select(models.PiggyBankGames).where(
                 and_(
 
@@ -171,7 +171,7 @@ class PiggyBankCruds:
 
         type_id, group_id = data['type_id'], data['group_id']
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
 
             async with session.begin():
 
@@ -210,7 +210,7 @@ class PiggyBankCruds:
 
         group_id = data['group_id']
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             async with session.begin():
 
                 try:
@@ -238,7 +238,7 @@ class PiggyBankCruds:
                                           mtm_model,
                                           group_id: int) -> list[pb_schemes.PiggyBankBaseStructureResponse]:
 
-        async with db_session() as session:
+        async with postgres_db.db_session() as session:
             query = select(item_model).where(
                 item_model.rel_groups.any(mtm_model.group_id == group_id)
             )
