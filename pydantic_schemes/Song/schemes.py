@@ -1,9 +1,4 @@
-from datetime import datetime
-
-from pydantic import BaseModel, field_validator
-
-from database.cruds import BaseCruds
-from database import models
+from pydantic import BaseModel
 
 
 class Song(BaseModel):
@@ -17,14 +12,6 @@ class Song(BaseModel):
     text: str
     file_path: str | None = None
     category: int | None = None  # Это внешний ключ, посмотреть как сюда передавать только корректные значения
-
-    @classmethod
-    @field_validator('category')
-    async def validate_category(cls, value):
-        if await BaseCruds.get_data_by_id(model=models.CategorySong, model_id=value):
-            return value
-
-        raise ValueError('Категория не найдена в БД')
 
 
 class SongResponse(Song):
