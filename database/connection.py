@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Type
 
 from psycopg2 import connect
 from sqlalchemy import URL
@@ -22,13 +22,12 @@ class Credentials:
 
 class DBEngineInterface(ABC):
     @abstractmethod
-    def get_engine(self):
+    def get_engine(self) -> AsyncEngine:
         pass
 
 class DBConnectionInterface(ABC):
 
     @abstractmethod
-    @property
     def db_session(self):
         pass
 
@@ -49,7 +48,6 @@ class PostgresEngine(DBEngineInterface):
         )
 
 
-    @property
     def get_engine(self) -> AsyncEngine:
         return self._engine
 
@@ -59,7 +57,7 @@ class PostgresEngine(DBEngineInterface):
 
 class DBConnectionSQL(DBConnectionInterface):
     def __init__(self, engine: DBEngineInterface):
-        self._engine = engine.get_engine
+        self._engine = engine.get_engine()
         self._db_session = None
 
     @property
