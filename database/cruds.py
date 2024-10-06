@@ -1,93 +1,118 @@
-from __future__ import annotations
-
 from . import models
 from .connection import postgres_db
 
 from pydantic import BaseModel
 
-from pydantic_schemes import schemes
 from pydantic_schemes.Song import schemes as song_schemes
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, inspect
 from sqlalchemy.orm import selectinload, DeclarativeBase
 
 from fastapi.encoders import jsonable_encoder
 
 from fuzzywuzzy import fuzz
 
-from typing import Literal, Type, TypeVar
+from typing import Literal, Type, TypeVar, List, Union, Dict, Optional
+from abc import ABC, abstractmethod
 
 any_schema = TypeVar('any_schema', bound=BaseModel)
 
 
-class BaseCruds:
+class CRUDManagerInterface(ABC):
+
+    @abstractmethod
+    def get_data(self):
+        pass
+
+    @abstractmethod
+    def insert_data(self):
+        pass
+
+    @abstractmethod
+    def update_data(self):
+        pass
+
+    @abstractmethod
+    def delete_data(self):
+        pass
+
+
+class CRUDManagerSQL:
 
     @staticmethod
-    async def get_all_data(model: Type[DeclarativeBase], schema: Type[BaseModel]) -> list[any_schema]:
+    def get_primary_key(
+            model: Type[DeclarativeBase]
+    ):
+        name_primary_key = (inspect(model)).primary_key[0].key
+        return getattr(model, name_primary_key)
+
+    @staticmethod
+    def get_model_columns(
+            model: Type[DeclarativeBase]
+    ):
+        inspector = inspect(model)
+        keys = inspector.columns.keys()
+
+        return keys
+
+    @staticmethod
+    def check_body(
+            model: Type[DeclarativeBase],
+            body: Dict
+    ) -> bool:
+        model_keys = CRUDManagerSQL.get_model_columns(
+            model=model
+        )
+
+        for key, value in body.items():
+            if key not in model_keys:
+                return False
+
+        return True
+
+    @staticmethod
+    async def get_data(
+            model: Type[DeclarativeBase],
+            row_id: Optional[Union[int| List[int]]] = None,
+            row_filter: Optional[Dict] = None
+    ):
+
+        primary_key = CRUDManagerSQL.get_primary_key(
+            model=model
+        )
 
         async with postgres_db.db_session() as session:
             query = select(model)
-            result = await session.execute(query)
 
+            if isinstance(row_id, List):
+                query = query.filter(primary_key.in_(row_id))
+
+            elif isinstance(row_id, int):
+                query = query.filter(primary_key == row_id)
+
+            if row_filter and CRUDManagerSQL.check_body(
+                model=model,
+                body=row_filter
+            ):
+                query = query.filter_by(**row_filter)
+
+            result = await session.execute(query)
             data = result.scalars().all()
-
-            return [schema.model_validate(jsonable_encoder(item)) for item in data]
-
-    @staticmethod
-    async def get_data_by_id(model,
-                             model_id: int,
-                             schema: Type[BaseModel],
-                             encode: bool = True, ) -> any_schema | bool:
-
-        async with postgres_db.db_session() as session:
-
-            query = select(model).filter(model.id == model_id)
-
-            result = await session.execute(query)
-            data = result.scalar_one_or_none()
-
-            if not data:
-                return False
-
-            if encode:
-                print(jsonable_encoder(data))
-                return schema.model_validate(jsonable_encoder(data))
 
             return data
 
+
     @staticmethod
     async def delete_data_by_id(model, model_id: int) -> bool:
-
-        async with postgres_db.db_session() as session:
-            data = await BaseCruds.get_data_by_id(model=model, model_id=model_id, encode=False)
-
-            await session.delete(data)
-            await session.commit()
-
-            return True
-
-    @staticmethod
-    async def get_data_by_filter(model,
-                                 schema: Type[BaseModel],
-                                 verify: bool = False,
-                                 **kwargs) -> list[any_schema] | bool:
-
-        async with postgres_db.db_session() as session:
-
-            query = select(model).filter_by(**kwargs)
-            result = await session.execute(query)
-
-            data = result.scalars().all()
-
-            if verify:
-
-                if len(data) == 0:
-                    return False
-
-                return True
-            print(jsonable_encoder(data))
-            return [schema.model_validate(jsonable_encoder(item)) for item in data]
+        pass
+        # async with postgres_db.db_session() as session:
+        #     data = await CRUDManagerSQL.get_data_by_id(model=model, model_id=model_id, encode=False)
+        #
+        #     await session.delete(data)
+        #     await session.commit()
+        #
+        #     return True
 
     @staticmethod
     async def insert_data(model, **kwargs) -> bool:
@@ -116,8 +141,10 @@ class SongCruds:
     @staticmethod
     async def search_all_songs_by_title(title_song: str) -> list[song_schemes.SongSearch] | bool:
 
-        all_songs = await BaseCruds.get_all_data(model=models.Songs,
-                                                 schema=song_schemes.SongResponse)
+        all_songs = await CRUDManagerSQL.get_data(
+            model=models.Songs,
+        )
+
         result_songs = []
 
         for song in all_songs:

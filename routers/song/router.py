@@ -4,10 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic_schemes.Song import schemes as song_schemes
 
 from database import models
-from database.cruds import BaseCruds, SongCruds
-
-from misc.verify_data import verify_data
-from typing import Union
+from database.cruds import CRUDManagerSQL, SongCruds
 
 song_router = APIRouter(prefix='/song', tags=['all_song_methods'])
 
@@ -29,9 +26,8 @@ async def get_songs() -> list[song_schemes.SongResponse]:
     :return: Список словарей всех песен
     """
 
-    return await BaseCruds.get_all_data(
-        model=models.Songs,
-        schema=song_schemes.SongResponse
+    return await CRUDManagerSQL.get_data(
+        model=models.Songs
     )
 
 
@@ -61,15 +57,7 @@ async def insert_song(
     :return: HTTPException с статус кодом и detail
     """
 
-    await verify_data(
-        schema=song_schemes.Song,
-        model=models.Songs,
-        error_msg='Такая песня уже существует',
-        title=song.title,
-        data=song
-    )
-
-    if await BaseCruds.insert_data(
+    if await CRUDManagerSQL.insert_data(
             model=models.Songs,
             title=song.title,
             title_search=song.title_search,
@@ -87,29 +75,29 @@ async def insert_song(
     )
 
 
-@song_router.get('/{song_id}', tags=['song'])
-async def get_song(
-        song_id: int
-) -> Union[song_schemes.SongResponse, JSONResponse, bool]:
-    """
-    Получаем песню по ее id
-    :param song_id: id искомой песни
-    :return: HTTPException в случае если песни нет либо song если песня найдена
-    """
-
-    song = await BaseCruds.get_data_by_id(
-        model=models.Songs,
-        model_id=song_id,
-        schema=song_schemes.SongResponse
-    )
-
-    if not song:
-        return JSONResponse(
-            status_code=400,
-            content={'message': 'Песни не существует'}
-        )
-
-    return song
+# @song_router.get('/{song_id}', tags=['song'])
+# async def get_song(
+#         song_id: int
+# ) -> Union[song_schemes.SongResponse, JSONResponse, bool]:
+#     """
+#     Получаем песню по ее id
+#     :param song_id: id искомой песни
+#     :return: HTTPException в случае если песни нет либо song если песня найдена
+#     """
+#
+#     song = await BaseCruds.get_data_by_id(
+#         model=models.Songs,
+#         model_id=song_id,
+#         schema=song_schemes.SongResponse
+#     )
+#
+#     if not song:
+#         return JSONResponse(
+#             status_code=400,
+#             content={'message': 'Песни не существует'}
+#         )
+#
+#     return song
 
 
 @song_router.put('/{song_id}', tags=['song'])
@@ -133,7 +121,7 @@ async def delete_song_by_id(
     :return: HTTPException с статус кодом и detail
     """
 
-    if await BaseCruds.delete_data_by_id(
+    if await CRUDManagerSQL.delete_data_by_id(
             model=models.Songs,
             model_id=song_id
     ):
@@ -151,10 +139,11 @@ async def delete_song_by_id(
 @song_router.get('/categories/mains', tags=['category'])
 async def get_main_chapters() -> list[song_schemes.CategorySongResponse]:
 
-    return await BaseCruds.get_data_by_filter(
+    return await CRUDManagerSQL.get_data(
         model=models.CategorySong,
-        schema=song_schemes.CategorySongResponse,
-        parent_id=None
+        row_filter={
+        'parent_id': None
+        }
     )
 
 @song_router.get('/categories/get_childs/{id_category}', tags=['category'])
@@ -162,10 +151,13 @@ async def get_child_chapters(
         id_category: int
 ) -> list[song_schemes.CategorySongResponse]:
 
-    return await BaseCruds.get_data_by_filter(
+
+
+    return await CRUDManagerSQL.get_data(
         model=models.CategorySong,
-        schema=song_schemes.CategorySongResponse,
-        parent_id=id_category
+        row_filter={
+            'parent_id': id_category
+        }
     )
 
 @song_router.post('/category', tags=['category'])
@@ -178,15 +170,7 @@ async def insert_category(
     :return: HTTPException со статус кодом и detail
     """
 
-    await verify_data(
-        data=category,
-        schema=song_schemes.CategorySong,
-        model=models.CategorySong,
-        error_msg='Такая категория уже существует',
-        name=category.name
-    )
-
-    if await BaseCruds.insert_data(
+    if await CRUDManagerSQL.insert_data(
             model=models.CategorySong,
             name=category.name,
             parent_id=category.parent_id
@@ -212,10 +196,9 @@ async def get_category_by_id(
     :return: category - словарь категории
     """
 
-    return await BaseCruds.get_data_by_id(
+    return await CRUDManagerSQL.get_data(
         model=models.CategorySong,
-        model_id=category_id,
-        schema=song_schemes.CategorySongResponse
+        row_id=category_id
     )
 
 
@@ -240,7 +223,7 @@ async def delete_category_by_id(
     :return: HTTPException - Результат удаления. Возвращает статус код и detail
     """
 
-    if await BaseCruds.delete_data_by_id(
+    if await CRUDManagerSQL.delete_data_by_id(
             model=models.CategorySong,
             model_id=category_id
     ):
@@ -260,8 +243,10 @@ async def delete_category_by_id(
 async def get_songs_by_category(
         category_id: int
 ) -> list[song_schemes.SongResponse]:
-    return await BaseCruds.get_data_by_filter(
+
+    return await CRUDManagerSQL.get_data(
         model=models.Songs,
-        schema=song_schemes.SongResponse,
-        category=category_id
+        row_filter={
+            'category_id': category_id
+        }
     )

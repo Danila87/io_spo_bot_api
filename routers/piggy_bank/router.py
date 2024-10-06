@@ -5,11 +5,10 @@ from starlette.responses import JSONResponse
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
 from database import models
-from database.cruds import BaseCruds, PiggyBankCruds
+from database.cruds import CRUDManagerSQL, PiggyBankCruds
 
 from typing import Annotated, List
 
-from misc.verify_data import verify_data
 from misc import file_work
 
 piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank'])
@@ -18,9 +17,8 @@ piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank'])
 @piggy_bank_router.get('/groups', tags=['piggy_bank'])
 async def get_groups() -> list[pb_schemes.PiggyBankGroupResponse]:
 
-    return await BaseCruds.get_all_data(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankGroups,
-        schema=pb_schemes.PiggyBankGroupResponse
     )
 
 
@@ -29,15 +27,7 @@ async def create_group(
         group: pb_schemes.PiggyBankGroup
 ) -> JSONResponse:
 
-    await verify_data(
-        data=group,
-        schema=pb_schemes.PiggyBankGroup,
-        model=models.PiggyBankGroups,
-        error_msg='Такая группа уже существует',
-        title=group.title
-    )
-
-    if await BaseCruds.insert_data(
+    if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankGroups,
             **dict(group)
     ):
@@ -56,9 +46,8 @@ async def create_group(
 @piggy_bank_router.get('/types_game', tags=['piggy_bank'])
 async def get_types_game() -> list[pb_schemes.PiggyBankTypeGameResponse]:
 
-    return await BaseCruds.get_all_data(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankTypesGame,
-        schema=pb_schemes.PiggyBankTypeGameResponse
     )
 
 
@@ -67,15 +56,7 @@ async def create_type_game(
         type_game: pb_schemes.PiggyBankTypeGame
 ) -> JSONResponse:
 
-    await verify_data(
-        data=type_game,
-        schema=pb_schemes.PiggyBankTypeGame,
-        model=models.PiggyBankTypesGame,
-        error_msg='Такой тип уже существует',
-        title=type_game.title
-    )
-
-    if await BaseCruds.insert_data(
+    if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankTypesGame,
             **dict(type_game)
     ):
@@ -96,10 +77,10 @@ async def get_game(
         game_id: int
 ) -> pb_schemes.PiggyBankGameResponse:
 
-    return await BaseCruds.get_data_by_id(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankGames,
-        model_id=game_id,
-        schema=pb_schemes.PiggyBankGameResponse)
+        row_id=game_id
+    )
 
 
 @piggy_bank_router.get('/games/{game_id}/file', tags=['piggy_bank'])
@@ -107,10 +88,9 @@ async def get_game_with_file(
         game_id: int
 ) -> FileResponse:
 
-    game = await BaseCruds.get_data_by_id(
+    game = await CRUDManagerSQL.get_data(
         model=models.PiggyBankGames,
-        model_id=game_id,
-        schema=pb_schemes.PiggyBankGameResponse
+        row_id=game_id
     )
 
     file = game.file_path
@@ -160,14 +140,6 @@ async def insert_game(
         'type_id': type_id
     })
 
-    await verify_data(
-        data=game,
-        schema=pb_schemes.PiggyBankGameCreate,
-        model=models.PiggyBankGames,
-        error_msg='Такая игра уже существует',
-        title=game.title
-    )
-
     if await PiggyBankCruds.insert_game_transaction(game=game):
         return JSONResponse(
             status_code=201,
@@ -183,9 +155,8 @@ async def insert_game(
 @piggy_bank_router.get('/legends', tags=['piggy_bank'])
 async def get_all_legends() -> list[pb_schemes.PiggyBankBaseStructureResponse]:
 
-    return await BaseCruds.get_all_data(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
     )
 
 
@@ -212,14 +183,6 @@ async def create_legend(
         'file_path': file_path,
         'group_id': group_id
     })
-
-    await verify_data(
-        data=data,
-        schema=pb_schemes.PiggyBankBaseStructureCreate,
-        model=models.PiggyBankLegends,
-        error_msg='Такая легенда уже существует',
-        title=data.title
-    )
 
     if await PiggyBankCruds.insert_ktd_or_legend_transaction(
             item_model=models.PiggyBankLegends,
@@ -252,10 +215,9 @@ async def get_legend_by_id_file(
         legend_id: int
 ) -> FileResponse:
 
-    legend = await BaseCruds.get_data_by_id(
+    legend = await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
-        model_id=legend_id,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
+        row_id=legend_id,
     )
 
     file = legend.file_path
@@ -276,19 +238,17 @@ async def get_legend_by_id(
         legend_id: int
 ) -> pb_schemes.PiggyBankBaseStructureResponse:
 
-    return await BaseCruds.get_data_by_id(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
-        model_id=legend_id,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
+        row_id=legend_id
     )
 
 
 @piggy_bank_router.get('/ktd', tags=['piggy_bank'])
 async def get_all_ktd() -> list[pb_schemes.PiggyBankBaseStructureResponse]:
 
-    return await BaseCruds.get_all_data(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankKTD,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
     )
 
 
@@ -315,14 +275,6 @@ async def create_ktd(
         'file_path': file_path,
         'group_id': group_id
     })
-
-    await verify_data(
-        data=data,
-        schema=pb_schemes.PiggyBankBaseStructureCreate,
-        model=models.PiggyBankKTD,
-        error_msg='Такое КТД уже существует',
-        title=data.title
-    )
 
     if await PiggyBankCruds.insert_ktd_or_legend_transaction(
             item_model=models.PiggyBankKTD,
@@ -357,10 +309,9 @@ async def get_legend_by_id_file(
         ktd_id: int
 ) -> FileResponse:
 
-    ktd = await BaseCruds.get_data_by_id(
+    ktd = await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
-        model_id=ktd_id,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
+        row_id=ktd_id
     )
 
     file = ktd.file_path
@@ -381,8 +332,7 @@ async def get_legend_by_id(
         ktd_id: int
 ) -> pb_schemes.PiggyBankBaseStructureResponse:
 
-    return await BaseCruds.get_data_by_id(
+    return await CRUDManagerSQL.get_data(
         model=models.PiggyBankKTD,
-        model_id=ktd_id,
-        schema=pb_schemes.PiggyBankBaseStructureResponse
+        row_id=ktd_id
     )
