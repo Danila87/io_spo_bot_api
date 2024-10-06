@@ -7,7 +7,7 @@ from pydantic_schemes.MethodicalBook import schemes as mb_schemes
 from database import models
 from database.cruds import CRUDManagerSQL
 
-from typing import Annotated
+from typing import Annotated, Optional
 from misc import file_work
 
 

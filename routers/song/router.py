@@ -121,9 +121,9 @@ async def delete_song_by_id(
     :return: HTTPException с статус кодом и detail
     """
 
-    if await CRUDManagerSQL.delete_data_by_id(
+    if await CRUDManagerSQL.delete_data(
             model=models.Songs,
-            model_id=song_id
+            row_id=song_id
     ):
         return JSONResponse(
             status_code=200,
@@ -223,9 +223,9 @@ async def delete_category_by_id(
     :return: HTTPException - Результат удаления. Возвращает статус код и detail
     """
 
-    if await CRUDManagerSQL.delete_data_by_id(
+    if await CRUDManagerSQL.delete_data(
             model=models.CategorySong,
-            model_id=category_id
+            row_id=category_id
     ):
 
         return JSONResponse(

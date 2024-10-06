@@ -1,3 +1,7 @@
+from pkgutil import get_data
+
+from certifi import where
+
 from . import models
 from .connection import postgres_db
 
@@ -102,17 +106,25 @@ class CRUDManagerSQL:
 
             return data
 
-
     @staticmethod
-    async def delete_data_by_id(model, model_id: int) -> bool:
-        pass
-        # async with postgres_db.db_session() as session:
-        #     data = await CRUDManagerSQL.get_data_by_id(model=model, model_id=model_id, encode=False)
-        #
-        #     await session.delete(data)
-        #     await session.commit()
-        #
-        #     return True
+    async def delete_data(
+            model: Type[DeclarativeBase],
+            row_id: Optional[Union[int | List[int]]] = None,
+            row_filter: Optional[Dict] = None
+    ):
+        async with postgres_db.db_session() as session:
+
+            rows = await CRUDManagerSQL.get_data(
+                model=model,
+                row_id=row_id,
+                row_filter=row_filter
+            )
+
+            for row in rows:
+                await session.delete(row)
+
+            await session.commit()
+
 
     @staticmethod
     async def insert_data(model, **kwargs) -> bool:
