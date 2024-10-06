@@ -32,10 +32,12 @@ async def check_user(
 
     await CRUDManagerSQL.insert_data(
         model=models.Users,
-        telegram_id=user.telegram_id,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        nickname=user.nickname
+        body={
+            'telegram_id':user.telegram_id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'nickname': user.nickname
+        }
     )
 
     return JSONResponse(

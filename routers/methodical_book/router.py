@@ -1,5 +1,8 @@
+import json
+
 from fastapi import APIRouter, UploadFile, Form, File
 from fastapi.responses import FileResponse
+from sqlalchemy.util import await_only
 from starlette.responses import JSONResponse
 
 from pydantic_schemes.MethodicalBook import schemes as mb_schemes
@@ -55,7 +58,7 @@ async def create_chapter_methodical_book(
 
         if await CRUDManagerSQL.insert_data(
                 model=models.MethodicalBookChapters,
-                **data
+                body=data
         ):
             JSONResponse(
                 status_code=201,
@@ -94,4 +97,13 @@ async def get_chapter_file(
         path=file,
         filename='avc.pdf',
         headers=headers_data
+    )
+
+@methodical_book_router.get('methodical_book/chapters/test', tags=['methodical_book'])
+async def get_test(
+        row_filter:str
+):
+    return await CRUDManagerSQL.get_data(
+        model=models.MethodicalBookChapters,
+        row_filter=json.loads(row_filter)
     )

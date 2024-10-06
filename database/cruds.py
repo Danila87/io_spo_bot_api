@@ -1,6 +1,4 @@
-from pkgutil import get_data
-
-from certifi import where
+from xxlimited_35 import error
 
 from . import models
 from .connection import postgres_db
@@ -19,6 +17,8 @@ from fuzzywuzzy import fuzz
 
 from typing import Literal, Type, TypeVar, List, Union, Dict, Optional
 from abc import ABC, abstractmethod
+
+from functools import wraps
 
 any_schema = TypeVar('any_schema', bound=BaseModel)
 
@@ -42,7 +42,7 @@ class CRUDManagerInterface(ABC):
         pass
 
 
-class CRUDManagerSQL:
+class CRUDManagerSQL(CRUDManagerInterface):
 
     @staticmethod
     def get_primary_key(
@@ -64,23 +64,49 @@ class CRUDManagerSQL:
     def check_body(
             model: Type[DeclarativeBase],
             body: Dict
-    ) -> bool:
+    ) -> List[str]:
         model_keys = CRUDManagerSQL.get_model_columns(
             model=model
         )
+        error_keys = []
 
         for key, value in body.items():
             if key not in model_keys:
-                return False
+                error_keys.append(key)
 
-        return True
+        return error_keys
 
     @staticmethod
+    def check_body_decorator(func):
+        @wraps(func)
+        async def wrapper(
+                *args,
+                **kwargs
+        ):
+            error_keys = []
+            model = kwargs.get('model')
+            body = kwargs.get('row_filter') or kwargs.get('body')
+
+            if body:
+                error_keys = CRUDManagerSQL.check_body(
+                    model=model,
+                    body=body
+                )
+
+            return await func(
+                *args,
+                **kwargs
+            ) if not error_keys else f'Данные ключи отсутствуют в модели: {error_keys}'
+
+        return wrapper
+
+    @staticmethod
+    @check_body_decorator
     async def get_data(
             model: Type[DeclarativeBase],
             row_id: Optional[Union[int| List[int]]] = None,
             row_filter: Optional[Dict] = None
-    ):
+    ) -> List[Type[DeclarativeBase]]:
 
         primary_key = CRUDManagerSQL.get_primary_key(
             model=model
@@ -95,10 +121,7 @@ class CRUDManagerSQL:
             elif isinstance(row_id, int):
                 query = query.filter(primary_key == row_id)
 
-            if row_filter and CRUDManagerSQL.check_body(
-                model=model,
-                body=row_filter
-            ):
+            if row_filter:
                 query = query.filter_by(**row_filter)
 
             result = await session.execute(query)
@@ -107,11 +130,12 @@ class CRUDManagerSQL:
             return data
 
     @staticmethod
+    @check_body_decorator
     async def delete_data(
             model: Type[DeclarativeBase],
             row_id: Optional[Union[int | List[int]]] = None,
             row_filter: Optional[Dict] = None
-    ):
+    ) -> bool:
         async with postgres_db.db_session() as session:
 
             rows = await CRUDManagerSQL.get_data(
@@ -123,19 +147,41 @@ class CRUDManagerSQL:
             for row in rows:
                 await session.delete(row)
 
-            await session.commit()
+            try:
+                await session.commit()
+                return True
+
+            except Exception as e:
+                print(f'Возникала непредвиденная ошибка при вставке {e}')
+                return False
 
 
     @staticmethod
-    async def insert_data(model, **kwargs) -> bool:
+    @check_body_decorator
+    async def insert_data(
+            model: Type[DeclarativeBase],
+            body: Dict
+    ) -> bool:
+
         async with postgres_db.db_session() as session:
-            data = model(**kwargs)
+            data = model(**body)
             session.add(data)
 
-            await session.commit()
+            try:
+                await session.commit()
+                return True
 
-            return True
+            except Exception as e:
+                print(f'Возникала непредвиденная ошибка при вставке {e}')
+                return False
 
+    @staticmethod
+    @check_body_decorator
+    async def update_data(
+            model: Type[DeclarativeBase],
+            body: Dict
+    ) -> bool:
+        pass
 
 class SongCruds:
 

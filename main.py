@@ -1,3 +1,5 @@
+import uvicorn
+
 from fastapi import FastAPI
 
 from routers.song.router import song_router
@@ -27,3 +29,7 @@ app.include_router(
 @app.get('/')
 def main():
     return 'Success'
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)

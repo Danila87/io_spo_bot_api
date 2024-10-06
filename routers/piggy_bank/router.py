@@ -29,7 +29,7 @@ async def create_group(
 
     if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankGroups,
-            **dict(group)
+            body=dict(group)
     ):
 
         return JSONResponse(
@@ -58,7 +58,7 @@ async def create_type_game(
 
     if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankTypesGame,
-            **dict(type_game)
+            body=dict(type_game)
     ):
 
         return JSONResponse(

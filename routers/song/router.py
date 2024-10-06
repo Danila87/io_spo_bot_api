@@ -58,12 +58,9 @@ async def insert_song(
     """
 
     if await CRUDManagerSQL.insert_data(
-            model=models.Songs,
-            title=song.title,
-            title_search=song.title_search,
-            text=song.text,
-            file_path=song.file_path,
-            category=song.category):
+        model=models.Songs,
+        body=dict(song)
+    ):
         return JSONResponse(
             status_code=201,
             content={'message': 'Песня успешно добавлена!'}
@@ -172,8 +169,7 @@ async def insert_category(
 
     if await CRUDManagerSQL.insert_data(
             model=models.CategorySong,
-            name=category.name,
-            parent_id=category.parent_id
+            body=dict(category)
     ):
 
         return JSONResponse(
