@@ -1,5 +1,3 @@
-from xxlimited_35 import error
-
 from . import models
 from .connection import postgres_db
 
@@ -8,7 +6,7 @@ from pydantic import BaseModel
 from pydantic_schemes.Song import schemes as song_schemes
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
-from sqlalchemy import select, and_, inspect
+from sqlalchemy import select, and_, inspect, update
 from sqlalchemy.orm import selectinload, DeclarativeBase
 
 from fastapi.encoders import jsonable_encoder
@@ -136,8 +134,8 @@ class CRUDManagerSQL(CRUDManagerInterface):
             row_id: Optional[Union[int | List[int]]] = None,
             row_filter: Optional[Dict] = None
     ) -> bool:
-        async with postgres_db.db_session() as session:
 
+        async with postgres_db.db_session() as session:
             rows = await CRUDManagerSQL.get_data(
                 model=model,
                 row_id=row_id,
@@ -152,7 +150,8 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 return True
 
             except Exception as e:
-                print(f'Возникала непредвиденная ошибка при вставке {e}')
+                print(f'Возникала непредвиденная ошибка при удалении {e}')
+                session.rollback()
                 return False
 
 
@@ -160,12 +159,12 @@ class CRUDManagerSQL(CRUDManagerInterface):
     @check_body_decorator
     async def insert_data(
             model: Type[DeclarativeBase],
-            body: Dict
+            body: Union[List[Dict], Dict]
     ) -> bool:
 
         async with postgres_db.db_session() as session:
-            data = model(**body)
-            session.add(data)
+            data = [model(**row) for row in body]
+            session.add_all(data)
 
             try:
                 await session.commit()
@@ -173,15 +172,32 @@ class CRUDManagerSQL(CRUDManagerInterface):
 
             except Exception as e:
                 print(f'Возникала непредвиденная ошибка при вставке {e}')
+                session.rollback()
                 return False
 
     @staticmethod
     @check_body_decorator
     async def update_data(
             model: Type[DeclarativeBase],
+            row_id: int,
             body: Dict
     ) -> bool:
-        pass
+        primary_key = CRUDManagerSQL.get_primary_key(
+            model=model
+        )
+
+        async with postgres_db.db_session() as session:
+            query = update(model).filter(primary_key == row_id).values(**body)
+            await session.execute(query)
+
+            try:
+                await session.commit()
+                return True
+
+            except Exception as e:
+                print(f'Возникала непредвиденная ошибка при обновлении {e}')
+                session.rollback()
+                return False
 
 class SongCruds:
 
