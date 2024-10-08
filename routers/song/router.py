@@ -34,7 +34,7 @@ async def get_songs() -> list[song_schemes.SongResponse]:
 @song_router.post('/songs/search_title', tags=['song'])
 async def search_songs_by_title(
         request_data: song_schemes.SongSearch
-) -> list[song_schemes.SongSearch]:
+):
     """
     Поиск песни по ее названию. В поиске используется алгоритм расстояния Левенштейна
     :param request_data:

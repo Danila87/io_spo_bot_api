@@ -10,14 +10,14 @@ from pydantic_schemes.MethodicalBook import schemes as mb_schemes
 from database import models
 from database.cruds import CRUDManagerSQL
 
-from typing import Annotated, Optional
+from typing import Annotated, Dict
 from misc import file_work
 
 
 methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_book'])
 
 @methodical_book_router.get('/chapters/mains', tags=['methodical_book'])
-async def get_main_chapters() -> list[mb_schemes.MethodicalChaptersResponse]:
+async def get_main_chapters():
 
     return await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
@@ -99,11 +99,11 @@ async def get_chapter_file(
         headers=headers_data
     )
 
-@methodical_book_router.get('methodical_book/chapters/test', tags=['methodical_book'])
+@methodical_book_router.get('/methodical_book/chapters/test')
 async def get_test(
-        row_filter:str
+        filter: str
 ):
     return await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
-        row_filter=json.loads(row_filter)
+        row_filter=json.loads(filter)
     )

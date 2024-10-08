@@ -48,6 +48,10 @@ class SongSearch(BaseModel):
     telegram_id: int = 1
     title_song: str
 
+class SongSearchResponse:
+
+    song_id: int
+    title_song: str
 
 class SongsByCategory(CategorySongResponse):
     rel_songs: list[SongResponse]
