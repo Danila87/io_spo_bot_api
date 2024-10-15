@@ -1,9 +1,11 @@
 from sqlalchemy.orm import DeclarativeBase, relationship
-from sqlalchemy import ForeignKey, Column, String, Integer, Date
+from sqlalchemy import ForeignKey, Column, String, Integer, Date, inspect
 
 
 class Base(DeclarativeBase):
-    pass
+    def to_dict(self):
+        return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+
 
 
 class Songs(Base):
