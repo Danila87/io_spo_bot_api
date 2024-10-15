@@ -1,11 +1,10 @@
-from .connection import postgres_db
+from .db_connection import postgres_db
 
 from pydantic_schemes.Song import schemes as song_schemes
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
 from sqlalchemy import select, and_, inspect, update
 from sqlalchemy.orm import DeclarativeBase
-
 from fuzzywuzzy import fuzz
 
 from typing import (
@@ -17,6 +16,7 @@ from typing import (
 )
 
 from .models import (
+    Base,
     CategorySong,
     Songs,
     PiggyBankKTD,
@@ -120,7 +120,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
             model: Type[DeclarativeBase],
             row_id: Optional[Union[int| List[int]]] = None,
             row_filter: Optional[Dict] = None
-    ) -> List[DeclarativeBase]:
+    ) -> List[Base]:
 
         primary_key = cls.get_primary_key(
             model=model
@@ -227,7 +227,7 @@ class SongCruds(CRUDManagerSQL):
     @classmethod
     async def get_all_songs_by_category(
             cls
-    ) -> list[song_schemes.SongsByCategory]:
+    ) -> List[Songs]:
 
         async with postgres_db.db_session() as session:
             query = select(CategorySong).join(Songs, CategorySong.id == Songs.category, isouter=True)

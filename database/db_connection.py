@@ -1,11 +1,21 @@
-from typing import Union, Type
-
-from psycopg2 import connect
 from sqlalchemy import URL
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncEngine
+
+from sqlalchemy.ext.asyncio import (
+    async_sessionmaker,
+    create_async_engine,
+    AsyncEngine
+)
+
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from config import DB_USER, DB_PASS, DB_HOST, DB_PORT, DB_NAME
+
+from config import (
+    DB_USER,
+    DB_PASS,
+    DB_HOST,
+    DB_PORT,
+    DB_NAME
+)
 
 class ConnectionError(Exception):
     def __init__(self, message):
