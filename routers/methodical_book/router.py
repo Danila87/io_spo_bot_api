@@ -53,7 +53,18 @@ async def create_chapter_methodical_book(
         parent_id: Annotated[int, Form()],
         file: Annotated[UploadFile, File()]
 ) -> JSONResponse:
-    # TODO реализовать проверку что такая запись уже есть
+
+    if await CRUDManagerSQL.get_data(
+        model=models.MethodicalBookChapters,
+        row_filter={
+            'title': title,
+            'parent_id': parent_id
+        }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Данная глава уже существует в БД'
+        )
 
     if not (filepath := file_work.save_file(path='database/files_data/methodical_data/',
                            file=file)):

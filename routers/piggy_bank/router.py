@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
+
 from starlette.responses import JSONResponse
 
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
@@ -7,7 +8,7 @@ from pydantic_schemes.PyggyBank import schemes as pb_schemes
 from database import models
 from database.cruds import CRUDManagerSQL, LegendCruds, KTDCruds, GameCruds
 
-from typing import Annotated, List, Union, Dict
+from typing import Annotated, List
 from pathlib import Path
 from misc import file_work
 
@@ -29,6 +30,17 @@ async def get_groups() -> List[pb_schemes.PiggyBankGroupResponse]:
 async def create_group(
         group: pb_schemes.PiggyBankGroup
 ) -> JSONResponse:
+
+    if await CRUDManagerSQL.get_data(
+        model=models.PiggyBankGroups,
+        row_filter={
+            'title': group.title
+        }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Данная группа уже есть в БД'
+        )
 
     if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankGroups,
@@ -62,6 +74,17 @@ async def get_types_game() -> List[pb_schemes.PiggyBankTypeGameResponse]:
 async def create_type_game(
         type_game: pb_schemes.PiggyBankTypeGame
 ) -> JSONResponse:
+
+    if await CRUDManagerSQL.get_data(
+        model=models.PiggyBankTypesGame,
+        row_filter={
+            'title': type_game.title
+        }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Данный тип игры уже существует в БД'
+        )
 
     if await CRUDManagerSQL.insert_data(
             model=models.PiggyBankTypesGame,
@@ -138,6 +161,7 @@ async def get_games_by_type_group(
         type_id: int,
         group_id: int
 ) -> List[pb_schemes.PiggyBankGameResponse]:
+
     data = await GameCruds.get_game_by_group_type(
         group_id=group_id,
         type_id=type_id
@@ -155,6 +179,8 @@ async def insert_game(
         group_id: Annotated[int, Form()],
         type_id: Annotated[int, Form()]
 ) -> JSONResponse:
+
+    # TODO нужна более продуманная реализация проверки на наличие в БД учитывая мени то мени связь
 
     if not (file_path := file_work.save_file(
         'database/files_data/piggy_bank_data',
@@ -205,6 +231,17 @@ async def create_legend(
         group_id: Annotated[int, Form()]
 ) -> JSONResponse:
 
+    if await CRUDManagerSQL.get_data(
+        model=models.PiggyBankLegends,
+        row_filter={
+            'title': title
+        }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Данная легенда уже существует в БД'
+        )
+
     if not (file_path := file_work.save_file(
         'database/files_data/piggy_bank_data',
         file=file
@@ -239,6 +276,7 @@ async def create_legend(
 async def get_legends_by_group(
         group_id: int
 ) -> List[pb_schemes.PiggyBankBaseStructureResponse]:
+
     data = await LegendCruds.get_legends_by_group(
         group_id=group_id
     )
@@ -312,6 +350,18 @@ async def create_ktd(
         file: Annotated[UploadFile, File()],
         group_id: Annotated[int, Form()]
 ) -> JSONResponse:
+
+    if await CRUDManagerSQL.get_data(
+        model=models.PiggyBankKTD,
+        row_filter={
+            'title': title
+        }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Данное КТД уже существует в БД'
+        )
+
     if not (file_path := file_work.save_file(
             'database/files_data/piggy_bank_data',
             file=file
@@ -369,7 +419,7 @@ async def get_legend_by_id_file(
             detail='Не найдено КТД под указанным id'
         )
 
-    if not(filepath := ktd[0].file_path):
+    if not (filepath := ktd[0].file_path):
         raise HTTPException(
             status_code=404,
             detail=f'Не найден файл по пути {filepath}'
