@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 
 
-class Song(BaseModel):
+class SongCreate(BaseModel):
 
     """
-    Базовая модель песни. Используется преимущественно для создания
+    Базовая модель песни. Используется для создания
     """
 
     title: str
@@ -13,8 +13,18 @@ class Song(BaseModel):
     file_path: str | None = None
     category: int | None = None  # Это внешний ключ, посмотреть как сюда передавать только корректные значения
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "Ангел света",
+                "title_search": "ангелсвета",
+                "text": "А мы не ангелы парень, нет мы не ангелы",
+                "file_path": "/path/to/file.mp3",
+                "category": 1
+            }
+        }
 
-class SongResponse(Song):
+class SongResponse(SongCreate):
 
     """
     Полная модель созданной песни. Наследуется от Song.
@@ -23,7 +33,7 @@ class SongResponse(Song):
     id: int
 
 
-class CategorySong(BaseModel):
+class CategorySongCreate(BaseModel):
 
     """
     Модель для создания категории
@@ -32,8 +42,16 @@ class CategorySong(BaseModel):
     name: str
     parent_id: int | None = None
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Песни ИО СПО (Авторские)",
+                "parent_id": 1
+            }
+        }
 
-class CategorySongResponse(CategorySong):
+
+class CategorySongResponse(CategorySongCreate):
 
 
     """
@@ -41,7 +59,6 @@ class CategorySongResponse(CategorySong):
     """
 
     id: int
-    name: str
 
 class SongSearch(BaseModel):
 
@@ -49,5 +66,5 @@ class SongSearch(BaseModel):
     title_song: str
 
 
-class SongsByCategory(CategorySongResponse):
+class SongsByCategoryResponse(CategorySongResponse):
     rel_songs: list[SongResponse]

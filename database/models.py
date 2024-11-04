@@ -1,9 +1,11 @@
 from sqlalchemy.orm import DeclarativeBase, relationship
-from sqlalchemy import ForeignKey, Column, String, Integer, Date
+from sqlalchemy import ForeignKey, Column, String, Integer, Date, LargeBinary, inspect
 
 
 class Base(DeclarativeBase):
-    pass
+    def to_dict(self):
+        return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+
 
 
 class Songs(Base):
@@ -48,13 +50,25 @@ class Users(Base):
     __tablename__ = 'Users'
 
     id = Column(Integer, primary_key=True)
+
+    login = Column(String(50), unique=True)
+    password = Column(LargeBinary)
+
+    email = Column(String(150), nullable=True)
+
+
+class TelegramUsers(Base):
+
+    __tablename__ = 'TelegramUsers'
+
+    id = Column(Integer, primary_key=True)
     telegram_id = Column(Integer)
 
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     nickname = Column(String)
 
-    reviews = relationship('Reviews', back_populates='users')
+    reviews = relationship('Reviews', back_populates='tg_users')
 
 
 class SongBooks(Base):
@@ -72,13 +86,13 @@ class Reviews(Base):
     __tablename__ = 'Reviews'
 
     id = Column(Integer, primary_key=True)
-    id_user = Column(Integer, ForeignKey('Users.id'))
+    id_user = Column(Integer, ForeignKey('TelegramUsers.id'))
 
     text_review = Column(String(500))
     looked_status = Column(Integer)
     created_data = Column(Date)
 
-    users = relationship('Users', back_populates='reviews')
+    tg_users = relationship('TelegramUsers', back_populates='reviews')
 
 
 class MethodicalBookChapters(Base):
@@ -95,7 +109,7 @@ class MethodicalBookChapters(Base):
 class PiggyBankGroups(Base):
 
     """
-    Чет я заебланил и обозвал по странному. Таблица предназначена для хранения возрастов детей или групп
+    Чет я заебланил и обозвал по-странному. Таблица предназначена для хранения возрастов детей или групп
     """
 
     __tablename__ = 'PiggyBankGroups'
