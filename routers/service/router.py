@@ -1,12 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
 from pydantic_schemes import schemes
 
 from database import models
 from database.cruds import CRUDManagerSQL
-
-import datetime
 
 router_service = APIRouter(
     prefix='/service',

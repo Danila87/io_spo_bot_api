@@ -28,7 +28,7 @@ async def get_groups() -> List[pb_schemes.PiggyBankGroupResponse]:
 
 @piggy_bank_router.post('/groups', tags=['piggy_bank'])
 async def create_group(
-        group: pb_schemes.PiggyBankGroup
+        group: pb_schemes.PiggyBankGroupCreate
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
@@ -72,7 +72,7 @@ async def get_types_game() -> List[pb_schemes.PiggyBankTypeGameResponse]:
 
 @piggy_bank_router.post('/types_game', tags=['piggy_bank'])
 async def create_type_game(
-        type_game: pb_schemes.PiggyBankTypeGame
+        type_game: pb_schemes.PiggyBankTypeGameCreate
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(

@@ -10,7 +10,7 @@ from pydantic_schemes.MethodicalBook import schemes as mb_schemes
 from database import models
 from database.cruds import CRUDManagerSQL
 
-from typing import Annotated, List, Union
+from typing import Annotated, List
 from misc import file_work
 
 
@@ -30,7 +30,7 @@ async def get_main_chapters() -> List[mb_schemes.MethodicalChaptersResponse]:
         mb_schemes.MethodicalChaptersResponse(**row.to_dict()) for row in data
     ]
 
-@methodical_book_router.get('/chapters/get_childs/', tags=['methodical_book'])
+@methodical_book_router.get('/chapters/get_children/', tags=['methodical_book'])
 async def get_child_chapters(
         id_chapter: int
 ) -> List[mb_schemes.MethodicalChaptersResponse]:
