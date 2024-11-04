@@ -35,6 +35,7 @@ class DBEngineInterface(ABC):
     def get_engine(self) -> AsyncEngine:
         pass
 
+
 class DBConnectionInterface(ABC):
 
     @abstractmethod
@@ -44,6 +45,7 @@ class DBConnectionInterface(ABC):
     @abstractmethod
     def test_connection(self):
         pass
+
 
 class PostgresEngine(DBEngineInterface):
     def __init__(self, credentials: Credentials):
@@ -65,6 +67,7 @@ class PostgresEngine(DBEngineInterface):
     def url(self) -> URL:
         return self._engine.url
 
+
 class DBConnectionSQL(DBConnectionInterface):
     def __init__(self, engine: DBEngineInterface):
         self._engine = engine.get_engine()
@@ -82,11 +85,12 @@ class DBConnectionSQL(DBConnectionInterface):
 
     async def test_connection(self):
         try:
-            async with self._engine.connect() as connection:
+            async with self._engine.connect():
                 print('Подключение к БД успешно!')
         except Exception as e:
             print(f'Подключение к БД завершилось ошибкой. Ошибка: {e}')
             raise ConnectionError
+
 
 class DBConnectionNoSQL(DBConnectionInterface):
 

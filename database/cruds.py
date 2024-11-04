@@ -1,6 +1,5 @@
 from .db_connection import postgres_db
 
-from pydantic_schemes.Song import schemes as song_schemes
 from pydantic_schemes.PyggyBank import schemes as pb_schemes
 
 from sqlalchemy import select, and_, inspect, update
@@ -193,7 +192,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
 
             except Exception as e:
                 print(f'Возникала непредвиденная ошибка при вставке {e}')
-                session.rollback()
+                await session.rollback()
                 return False
 
     @classmethod
