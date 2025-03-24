@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
+import urllib.parse
 
-from starlette.responses import JSONResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException
 
-from pydantic_schemes.PyggyBank import schemes as pb_schemes
+from starlette.responses import JSONResponse, Response
+
+from schemas.service import RequestCreate, AdditionalPath
+from schemas import pyggy_bank as pb_schemes
 
 from database import models
 from database.cruds import CRUDManagerSQL, LegendCruds, KTDCruds, GameCruds
 
-from typing import Annotated, List
-from pathlib import Path
-from misc import file_work
+from typing import Annotated, List, Optional
+
+from common_lib.file_storage.file_manager import file_manager
+from common_lib.logger import logger
 
 piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank'])
 
@@ -104,7 +107,8 @@ async def create_type_game(
 
 @piggy_bank_router.get('/games/', tags=['piggy_bank'])
 async def get_game(
-        game_id: int
+        game_id: int,
+        user_id: Optional[int] = None
 ) -> pb_schemes.PiggyBankGameResponse:
 
     if not (data := await CRUDManagerSQL.get_data(
@@ -117,16 +121,25 @@ async def get_game(
             detail='Игра под указанным id не найдена'
         )
 
+    await CRUDManagerSQL.insert_request(
+        request_type_title='Игра',
+        body=RequestCreate(
+            id_content=data[0].id,
+            id_user=user_id,
+            content_display_value=data[0].title
+        )
+    )
+
     return pb_schemes.PiggyBankGameResponse(
         **data[0].to_dict()
     )
 
 
 
-@piggy_bank_router.get('/games/{game_id}/file', tags=['piggy_bank'])
+@piggy_bank_router.get('/games/file/', tags=['piggy_bank'])
 async def get_game_with_file(
         game_id: int
-) -> FileResponse:
+) -> Response:
 
     if not (game := await CRUDManagerSQL.get_data(
         model=models.PiggyBankGames,
@@ -137,26 +150,27 @@ async def get_game_with_file(
             detail='Игра под указанным id не найдена'
         )
 
-    if (filepath := game[0].file_path) is None:
+    if not (filepath := game[0].file_path):
         raise HTTPException(
             status_code=404,
             detail=f'Не найден связанный файл по пути {game[0].file_path}'
         )
 
-    file = Path(filepath)
+    file = await file_manager.get_file(filepath)
 
     headers_data = {
-        'file_type': file.suffix
+        'file_type': file.suffix,
+        'filename': urllib.parse.quote(file.filename.encode('utf-8'))
     }
 
-    return FileResponse(
-        path=file.resolve(),
-        filename=file.name,
+    return Response(
+        content=file.file_data,
+        media_type=file.content_type,
         headers=headers_data
     )
 
 
-@piggy_bank_router.get('/games/', tags=['piggy_bank'])
+@piggy_bank_router.get('/games/by_type_group/', tags=['piggy_bank'])
 async def get_games_by_type_group(
         type_id: int,
         group_id: int
@@ -173,36 +187,25 @@ async def get_games_by_type_group(
 
 @piggy_bank_router.post('/games/', tags=['piggy_bank'])
 async def insert_game(
-        title: Annotated[str, Form()],
-        description: Annotated[str, Form()],
-        file: Annotated[UploadFile, File()],
-        group_id: Annotated[int, Form()],
-        type_id: Annotated[int, Form()]
+        game_data: pb_schemes.PiggyBankGameCreate
 ) -> JSONResponse:
 
-    # TODO нужна более продуманная реализация проверки на наличие в БД учитывая мени то мени связь
+    intersection_group_type_ids = await GameCruds.check_available_game(
+        title=game_data.title,
+        type_ids=game_data.type_id,
+        group_ids=game_data.group_id
+    )
 
-    if not (file_path := file_work.save_file(
-        'database/files_data/piggy_bank_data',
-        file=file
-    )):
+    if intersection_group_type_ids.group_ids and intersection_group_type_ids.type_ids:
         raise HTTPException(
             status_code=500,
-            detail='Возникла ошибка при создании файла'
+            detail='Игра с таким названием уже существует в БД и имеет те же типы и группы, что были переданы.'
         )
 
-    game = pb_schemes.PiggyBankGameCreate.model_validate({
-        'title': title,
-        'description': description,
-        'file_path': file_path,
-        'group_id': group_id,
-        'type_id': type_id
-    })
-
-    if await GameCruds.insert_game_transaction(game=game):
+    if row_id := await GameCruds.insert_game_transaction(game=game_data):
         return JSONResponse(
             status_code=201,
-            content={'message': 'Тип игра добавлена!'}
+            content={'message': 'Тип игра добавлена!', 'row_id': row_id}
         )
 
     raise HTTPException(
@@ -210,6 +213,37 @@ async def insert_game(
         detail='Произошла ошибка при создании'
     )
 
+@piggy_bank_router.put('/games/{game_id}/load_file', tags=['piggy_bank'])
+async def load_game_file(
+        game_id: int,
+        file: Annotated[UploadFile, File()]
+):
+
+    if not await file_manager.save_file(
+        file=file,
+        additional_path=AdditionalPath.GAMES_PATH
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Возникла ошибка при сохранении файла'
+        )
+
+    if not await CRUDManagerSQL.update_data(
+            model=models.PiggyBankGames,
+            row_id=game_id,
+            body={
+                'file_path': f'{AdditionalPath.GAMES_PATH.value}/{file.filename}',
+            }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail={'message': 'Ошибка сохранения'}
+        )
+
+    return JSONResponse(
+        status_code=201,
+        content={'message': 'Запись сохранена'}
+    )
 
 @piggy_bank_router.get('/legends', tags=['piggy_bank'])
 async def get_all_legends() -> List[pb_schemes.PiggyBankBaseStructureResponse]:
@@ -225,16 +259,13 @@ async def get_all_legends() -> List[pb_schemes.PiggyBankBaseStructureResponse]:
 
 @piggy_bank_router.post('/legends', tags=['piggy_bank'])
 async def create_legend(
-        title: Annotated[str, Form()],
-        description: Annotated[str, Form()],
-        file: Annotated[UploadFile, File()],
-        group_id: Annotated[int, Form()]
+        legend: pb_schemes.PiggyBankBaseStructureCreate
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
         row_filter={
-            'title': title
+            'title': legend.title
         }
     ):
         raise HTTPException(
@@ -242,28 +273,15 @@ async def create_legend(
             detail='Данная легенда уже существует в БД'
         )
 
-    if not (file_path := file_work.save_file(
-        'database/files_data/piggy_bank_data',
-        file=file
-    )):
-        raise HTTPException(
-            status_code=500,
-            detail='Произошла ошибка при сохранении файла'
-        )
-
-    data = pb_schemes.PiggyBankBaseStructureCreate.model_validate({
-        'title': title,
-        'description': description,
-        'file_path': file_path,
-        'group_id': group_id
-    })
-
-    if await LegendCruds.insert_legend_transaction(
-            data=data
+    if new_id := await LegendCruds.insert_legend_transaction(
+            data=legend
     ):
         return JSONResponse(
             status_code=201,
-            content={'message': 'Легенда добавлена!'}
+            content={
+                'message': 'Легенда добавлена!',
+                'row_id': new_id
+            }
         )
 
     raise HTTPException(
@@ -271,6 +289,36 @@ async def create_legend(
         detail='Произошла ошибка при создании легенды'
     )
 
+@piggy_bank_router.put('/legends/{legend_id}/load_file', tags=['piggy_bank'])
+async def load_legend_file(
+        legend_id: int,
+        file: Annotated[UploadFile, File()]
+):
+    if not await file_manager.save_file(
+        file=file,
+        additional_path=AdditionalPath.LEGENDS_PATH
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Возникла ошибка при сохранении файла',
+        )
+
+    if not await CRUDManagerSQL.update_data(
+            model=models.PiggyBankLegends,
+            row_id=legend_id,
+            body={
+                'file_path': f'{AdditionalPath.LEGENDS_PATH.value}/{file.filename}',
+            }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail={'message': 'Ошибка сохранения'}
+        )
+
+    return JSONResponse(
+        status_code=201,
+        content={'message': 'Запись сохранена'}
+    )
 
 @piggy_bank_router.get('/legend/by_group/')
 async def get_legends_by_group(
@@ -283,10 +331,10 @@ async def get_legends_by_group(
     return [pb_schemes.PiggyBankBaseStructureResponse(**row.to_dict()) for row in data]
 
 
-@piggy_bank_router.get('/legends/{legend_id}/file')
+@piggy_bank_router.get('/legends/file/')
 async def get_legend_by_id_file(
         legend_id: int
-) -> FileResponse:
+) -> Response:
 
     if not (legend := await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
@@ -302,22 +350,25 @@ async def get_legend_by_id_file(
             status_code=404,
             detail=f'Не найден связанный файл по пути {filepath}'
         )
-    file = Path(filepath)
+
+    file = await file_manager.get_file(filepath)
 
     headers_data = {
-        'file_type': file.suffix
+        'file_type': file.suffix,
+        'filename': urllib.parse.quote(file.filename.encode('utf-8'))
     }
 
-    return FileResponse(
-        path=file.resolve(),
-        filename=file.name,
+    return Response(
+        content=file.file_data,
+        media_type=file.content_type,
         headers=headers_data
     )
 
 
 @piggy_bank_router.get('/legends/')
 async def get_legend_by_id(
-        legend_id: int
+        legend_id: int,
+        user_id: Optional[int] = None
 ) -> pb_schemes.PiggyBankBaseStructureResponse:
 
     if not (data := await CRUDManagerSQL.get_data(
@@ -328,6 +379,15 @@ async def get_legend_by_id(
             status_code=404,
             detail='Легенда под указанным id не найдена'
         )
+
+    await CRUDManagerSQL.insert_request(
+        request_type_title='Легенда',
+        body=RequestCreate(
+            id_content=data[0].id,
+            id_user=user_id,
+            content_display_value=data[0].title
+        )
+    )
 
     return pb_schemes.PiggyBankBaseStructureResponse(**data[0].to_dict())
 
@@ -345,16 +405,13 @@ async def get_all_ktd() -> List[pb_schemes.PiggyBankBaseStructureResponse]:
 
 @piggy_bank_router.post('/ktd', tags=['piggy_bank'])
 async def create_ktd(
-        title: Annotated[str, Form()],
-        description: Annotated[str, Form()],
-        file: Annotated[UploadFile, File()],
-        group_id: Annotated[int, Form()]
+    ktd: pb_schemes.PiggyBankBaseStructureCreate
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
         model=models.PiggyBankKTD,
         row_filter={
-            'title': title
+            'title': ktd.title,
         }
     ):
         raise HTTPException(
@@ -362,29 +419,15 @@ async def create_ktd(
             detail='Данное КТД уже существует в БД'
         )
 
-    if not (file_path := file_work.save_file(
-            'database/files_data/piggy_bank_data',
-            file=file
-    )):
-
-        raise HTTPException(
-            status_code=500,
-            detail='Произошла ошибка при сохранении файла.'
-        )
-
-    data = pb_schemes.PiggyBankBaseStructureCreate.model_validate({
-        'title': title,
-        'description': description,
-        'file_path': file_path,
-        'group_id': group_id
-    })
-
-    if await KTDCruds.insert_ktd_transaction(
-            data=data
+    if new_row_id := await KTDCruds.insert_ktd_transaction(
+            data=ktd
     ):
         return JSONResponse(
             status_code=201,
-            content={'message': 'КТД добавлено!'}
+            content={
+                'message': 'КТД добавлено!',
+                'row_id': new_row_id
+            }
         )
 
     raise HTTPException(
@@ -392,8 +435,38 @@ async def create_ktd(
         detail='Произошла ошибка при создании КТД'
     )
 
+@piggy_bank_router.put('/ktd/{ktd_id}/load_file', tags=['piggy_bank'])
+async def load_ktd_file(
+        ktd_id: int,
+        file: Annotated[UploadFile, File()]
+):
+    if not await file_manager.save_file(
+            file=file,
+            additional_path=AdditionalPath.KTD_PATH
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail='Возникла ошибка при сохранении файла'
+        )
 
-@piggy_bank_router.get('/ktd/by_group/{group_id}')
+    if not await CRUDManagerSQL.update_data(
+            model=models.PiggyBankKTD,
+            row_id=ktd_id,
+            body={
+                'file_path': f'{AdditionalPath.KTD_PATH.value}/{file.filename}',
+            }
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail={'message': 'Ошибка сохранения'}
+        )
+
+    return JSONResponse(
+        status_code=201,
+        content={'message': 'Запись сохранена'}
+    )
+
+@piggy_bank_router.get('/ktd/by_group/')
 async def get_ktd_by_group(
         group_id: int
 ) -> List[pb_schemes.PiggyBankBaseStructureResponse]:
@@ -405,13 +478,13 @@ async def get_ktd_by_group(
         pb_schemes.PiggyBankBaseStructureResponse(**row.to_dict()) for row in data
     ]
 
-@piggy_bank_router.get('/ktd/{ktd_id}/file')
+@piggy_bank_router.get('/ktd/file/')
 async def get_legend_by_id_file(
         ktd_id: int
-) -> FileResponse:
+) -> Response:
 
     if not (ktd := await CRUDManagerSQL.get_data(
-        model=models.PiggyBankLegends,
+        model=models.PiggyBankKTD,
         row_id=ktd_id
     )):
         raise HTTPException(
@@ -425,31 +498,42 @@ async def get_legend_by_id_file(
             detail=f'Не найден файл по пути {filepath}'
         )
 
-    file = Path(filepath)
+    file = await file_manager.get_file(filepath)
 
     headers_data = {
-        'file_type': file.suffix
+        'file_type': file.suffix,
+        'filename': urllib.parse.quote(file.filename.encode('utf-8'))
     }
 
-    return FileResponse(
-        path=file.resolve(),
-        filename=file.name,
+    return Response(
+        content=file.file_data,
+        media_type=file.content_type,
         headers=headers_data
     )
 
 
 @piggy_bank_router.get('/ktd/')
 async def get_ktd_by_id(
-        legend_id: int
+        ktd_id: int,
+        user_id: Optional[int] = None
 ) -> pb_schemes.PiggyBankBaseStructureResponse:
 
     if not (data := await CRUDManagerSQL.get_data(
         model=models.PiggyBankKTD,
-        row_id=legend_id
+        row_id=ktd_id
     )):
         raise HTTPException(
             status_code=404,
             detail='КТД под указанным id не найдено'
         )
+
+    await CRUDManagerSQL.insert_request(
+        request_type_title='КТД',
+        body=RequestCreate(
+            id_content=data[0].id,
+            id_user=user_id,
+            content_display_value=data[0].title
+        )
+    )
 
     return pb_schemes.PiggyBankBaseStructureResponse(**data[0].to_dict())

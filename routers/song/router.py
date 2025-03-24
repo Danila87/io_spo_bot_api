@@ -1,13 +1,15 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from pydantic_schemes.Song import schemes as song_schemes
+from schemas.service import RequestCreate
+from schemas import song as song_schemes
 
 from database import models
 from database.cruds import CRUDManagerSQL, SongCruds
 
-from typing import List
-
+from typing import List, Optional
 
 song_router = APIRouter(prefix='/song', tags=['all_song_methods'])
 
@@ -38,7 +40,7 @@ async def insert_song(
     ):
         raise HTTPException(
             status_code=500,
-            detail='Данная категория уже существует в БД'
+            detail='Данная песня уже существует в БД'
         )
 
     if await CRUDManagerSQL.insert_data(
@@ -58,7 +60,8 @@ async def insert_song(
 
 @song_router.get('/', tags=['song'])
 async def get_song(
-        song_id: int
+        song_id: int,
+        user_id: Optional[int] = None
 ) -> song_schemes.SongResponse:
 
     if not (data := await CRUDManagerSQL.get_data(
@@ -69,6 +72,15 @@ async def get_song(
             status_code=404,
             detail='Не найдена песня с указанным id'
         )
+
+    await CRUDManagerSQL.insert_request(
+        request_type_title='Песня',
+        body=RequestCreate(
+            id_content=data[0].id,
+            id_user=user_id,
+            content_display_value=data[0].title
+        )
+    )
 
     return song_schemes.SongResponse(
         **data[0].to_dict()
@@ -127,6 +139,22 @@ async def get_songs_by_category() -> List[song_schemes.SongsByCategoryResponse]:
 
     return [
         song_schemes.SongsByCategoryResponse(**row.to_dict()) for row in data
+    ]
+
+@song_router.get('/songs/by_category/', tags=['song', 'category'])
+async def get_songs_by_category(
+        category_id: int
+) -> List[song_schemes.SongResponse]:
+
+    data = await CRUDManagerSQL.get_data(
+        model=models.Songs,
+        row_filter={
+            'category': category_id
+        }
+    )
+
+    return [
+        song_schemes.SongResponse(**row.to_dict()) for row in data
     ]
 
 
@@ -237,7 +265,7 @@ async def get_main_chapters() -> List[song_schemes.CategorySongResponse]:
 
 @song_router.get('/categories/get_children/', tags=['category'])
 async def get_child_chapters(
-        id_category: int
+        id_category: Optional[int] = None
 ) -> List[song_schemes.CategorySongResponse]:
 
     data = await CRUDManagerSQL.get_data(

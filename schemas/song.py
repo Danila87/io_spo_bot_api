@@ -32,6 +32,18 @@ class SongResponse(SongCreate):
 
     id: int
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "title": "Ангел света",
+                "title_search": "ангелсвета",
+                "text": "А мы не ангелы парень, нет мы не ангелы",
+                "file_path": "/path/to/file.mp3",
+                "category": 1
+            }
+        }
+
 
 class CategorySongCreate(BaseModel):
 

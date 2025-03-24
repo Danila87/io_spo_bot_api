@@ -12,7 +12,7 @@ from config import SECRET_KEY, SECRET_KEY_REFRESH
 from database.cruds import CRUDManagerSQL
 from database import models
 
-from pydantic_schemes.Auth.schemes import Token, SubjectData, TokenData, UserResponse
+from schemas.auth import SubjectData, TokenData, UserResponse
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
