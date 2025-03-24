@@ -1,9 +1,13 @@
+import asyncio
+
+from common_lib.logger import logger
 from .db_connection import postgres_db
 
-from pydantic_schemes.PyggyBank import schemes as pb_schemes
+from schemas import pyggy_bank as pb_schemes
+from schemas.service import RequestCreate
 
 from sqlalchemy import select, and_, inspect, update
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, selectinload
 from fuzzywuzzy import fuzz
 
 from typing import (
@@ -24,7 +28,9 @@ from .models import (
     PiggyBankGroupsForLegend,
     PiggyBankGames,
     PiggyBankGroupForGame,
-    PiggyBankTypesGamesForGame
+    PiggyBankTypesGamesForGame,
+    RequestTypes,
+    Requests
 )
 
 from abc import ABC, abstractmethod
@@ -55,6 +61,7 @@ class CRUDManagerInterface(ABC):
 
 
 ##### Классы SQL #####
+
 
 class CRUDManagerSQL(CRUDManagerInterface):
 
@@ -166,7 +173,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 return True
 
             except Exception as e:
-                print(f'Возникала непредвиденная ошибка при удалении {e}')
+                logger.error(f'Возникла ошибка при удалении {e}')
                 session.rollback()
                 return False
 
@@ -191,7 +198,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 return True
 
             except Exception as e:
-                print(f'Возникала непредвиденная ошибка при вставке {e}')
+                logger.error(f'Возникала непредвиденная ошибка при вставке {e}')
                 await session.rollback()
                 return False
 
@@ -216,9 +223,64 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 return True
 
             except Exception as e:
-                print(f'Возникала непредвиденная ошибка при обновлении {e}')
+                logger.error(f'Возникала непредвиденная ошибка при обновлении {e}')
                 session.rollback()
                 return False
+
+    @classmethod
+    async def search_by_title(
+            cls,
+            title_search
+    ):
+        async def get_data_with_key(key, model, column_view):
+            # Получаем данные а затем фильтруем их по поисковой строке
+            data = await cls.get_data(model=model)
+            filtered_data = [row for row in data if fuzz.WRatio(getattr(row, column_view).lower(), title_search) > 60]
+
+            return key, filtered_data
+
+        models_search = {
+            'songs': {'model': Songs, 'column_view': 'title'},
+            'ktds': {'model': PiggyBankKTD, 'column_view': 'title'},
+            'legends': {'model': PiggyBankLegends, 'column_view': 'title'},
+            'games': {'model': PiggyBankGames, 'column_view': 'title'}
+        }
+
+        tasks = [
+            get_data_with_key(
+                key=key,
+                model=model_data['model'],
+                column_view=model_data['column_view']
+            )
+            for key, model_data in models_search.items()
+        ]
+
+        result = dict(await asyncio.gather(*tasks))
+
+        # Перед возвратом удаляем пустые ключи
+        return result
+
+    @classmethod
+    async def insert_request(
+            cls,
+            request_type_title: str,
+            body: RequestCreate
+    ):
+        if not (request_type := await cls.get_data(
+            model=RequestTypes,
+            row_filter={
+                'title': request_type_title
+            }
+        )):
+            return
+
+        request_data = dict(body)
+        request_data['id_request_type'] = request_type[0].id
+
+        await cls.insert_data(
+            model=Requests,
+            body=dict(request_data)
+        )
 
 
 class SongCruds(CRUDManagerSQL):
@@ -254,7 +316,7 @@ class KTDCruds(CRUDManagerSQL):
     async def insert_ktd_transaction(
             cls,
             data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> bool:
+    ) -> Optional[int]:
 
         async with postgres_db.db_session() as session:
 
@@ -263,28 +325,28 @@ class KTDCruds(CRUDManagerSQL):
                     item_data = PiggyBankKTD(
                         title=data.title,
                         description=data.description,
-                        file_path=data.file_path
                     )
 
                     session.add(item_data)
                     await session.flush()
                     await session.refresh(item_data)
 
-                    session.add(
-                        PiggyBankGroupsForKTD(
-                            group_id=data.group_id,
-                            ktd_id=item_data.id
+                    for g_id in data.group_id:
+                        session.add(
+                            PiggyBankGroupsForKTD(
+                                group_id=g_id,
+                                ktd_id=item_data.id
+                            )
                         )
-                    )
 
                     await session.flush()
 
-                    return True
+                    return item_data.id
 
             except Exception as e:
-                print(f'Возникла неожиданная ошибка при создании КТД {e}')
+                logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
                 await session.rollback()
-                return False
+                return None
 
     @classmethod
     async def get_ktd_by_group(
@@ -309,7 +371,7 @@ class LegendCruds(CRUDManagerSQL):
     async def insert_legend_transaction(
             cls,
             data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> bool:
+    ) -> Optional[int]:
 
         async with postgres_db.db_session() as session:
 
@@ -318,28 +380,28 @@ class LegendCruds(CRUDManagerSQL):
                     item_data = PiggyBankLegends(
                         title=data.title,
                         description=data.description,
-                        file_path=data.file_path
                     )
 
                     session.add(item_data)
                     await session.flush()
                     await session.refresh(item_data)
 
-                    session.add(
-                        PiggyBankGroupsForLegend(
-                            group_id=data.group_id,
-                            legend_id=item_data.id
+                    for g_id in data.group_id:
+                        session.add(
+                            PiggyBankGroupsForLegend(
+                                group_id=g_id,
+                                legend_id=item_data.id
+                            )
                         )
-                    )
 
                     await session.flush()
 
-                    return True
+                    return item_data.id
 
             except Exception as e:
-                print(f'При создании легенды возникла ошибка: {e}')
+                logger.error(f'При создании легенды возникла ошибка: {e}')
                 await session.rollback()
-                return False
+                return
 
     @classmethod
     async def get_legends_by_group(
@@ -360,11 +422,12 @@ class LegendCruds(CRUDManagerSQL):
 
 class GameCruds(CRUDManagerSQL):
 
+
     @classmethod
     async def insert_game_transaction(
             cls,
             game: pb_schemes.PiggyBankGameCreate
-    ) -> bool:
+    ) -> Optional[int]:
 
         async with postgres_db.db_session() as session:
 
@@ -372,34 +435,37 @@ class GameCruds(CRUDManagerSQL):
                 async with session.begin():
                     game_data = PiggyBankGames(
                         title=game.title,
-                        description=game.description,
-                        file_path=game.file_path
+                        description=game.description
                     )
 
                     session.add(game_data)
                     await session.flush()
                     await session.refresh(game_data)
 
-                    session.add(
-                        PiggyBankTypesGamesForGame(
-                            type_id=game.type_id,
-                            game_id=game_data.id
+                    for type_id in game.type_id:
+                        session.add(
+                            PiggyBankTypesGamesForGame(
+                                type_id=type_id,
+                                game_id=game_data.id
+                            )
                         )
-                    )
-                    session.add(
-                        PiggyBankGroupForGame(
-                            group_id=game.group_id,
-                            game_id=game_data.id
+
+                    for group_id in game.group_id:
+                        session.add(
+                            PiggyBankGroupForGame(
+                                group_id=group_id,
+                                game_id=game_data.id
+                            )
                         )
-                    )
 
                     await session.flush()
 
-                    return True
+                    return game_data.id
 
             except Exception as e:
-                print(f'Возникла ошибка при создании игры {e}')
-                return False
+                logger.error(f'Возникла ошибка при создании игры {e}')
+                return None
+
 
     @classmethod
     async def get_game_by_group_type(
@@ -422,5 +488,44 @@ class GameCruds(CRUDManagerSQL):
             data = result.scalars().all()
 
             return data
+
+
+    @classmethod
+    async def check_available_game(
+            cls,
+            title: str,
+            type_ids: List[int],
+            group_ids: List[int],
+    ) -> pb_schemes.IntersectionGroupTypeIds:
+        '''
+        Функция получает уже созданные type_id и group_id на игру.
+        Сверяет с параметрами и если все созданные ids есть в параметрах, то считаем что такая игра уже есть
+        '''
+        async with postgres_db.db_session() as session:
+
+            query = select(PiggyBankGames).filter(PiggyBankGames.title == title).options(
+                selectinload(PiggyBankGames.rel_types_for_game),
+                selectinload(PiggyBankGames.rel_groups_for_game),
+            )
+
+            result = await session.execute(query)
+            data = result.scalars().first()
+
+            if not data:
+                return pb_schemes.IntersectionGroupTypeIds (
+                group_ids=[],
+                type_ids=[]
+            )
+
+            available_group_ids = [row.group_id for row in data.rel_groups_for_game]
+            available_type_ids = [row.type_id for row in data.rel_types_for_game]
+
+            new_type_ids = list(set(available_type_ids).intersection(set(type_ids)))
+            new_group_ids = list(set(available_group_ids).intersection(set(group_ids)))
+
+            return pb_schemes.IntersectionGroupTypeIds(
+                group_ids=new_group_ids,
+                type_ids=new_type_ids
+            )
 
 ########################

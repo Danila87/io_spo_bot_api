@@ -5,7 +5,7 @@ from . import auth
 
 from fastapi import APIRouter, HTTPException
 
-from pydantic_schemes.Auth.schemes import UserCreate, UserLogin, UserResponse, TokenPair, SubjectData
+from schemas.auth import UserCreate, UserLogin, UserResponse, TokenPair, SubjectData
 
 from database.cruds import CRUDManagerSQL
 from database import models
