@@ -45,7 +45,7 @@ class ApiClientBase:
         else:
             return await response.text()
 
-    # TODO нужна более понятная проработка Exception по примеру той, которой делал на работе
+    # нужна более понятная проработка Exception по примеру той, которой делал на работе
     async def call_async_post(
             self,
             url: str,
