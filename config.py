@@ -18,3 +18,4 @@ GRAFANA_TOKEN = os.environ.get('GRAFANA_TOKEN')
 
 S3_ACCESS_KEY = os.environ.get('S3ACCESSKEY')
 S3_SECRET_KEY = os.environ.get('S3SECRETKEY')
+S3_SSL_CERT = os.environ.get('S3SSLCERT')

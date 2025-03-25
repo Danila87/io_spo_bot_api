@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Union
@@ -11,7 +12,7 @@ from .interface import FileStorageInterface
 from schemas.service import FileResponse, AdditionalPath
 
 from common_lib.logger import logger
-
+from config import S3_SSL_CERT
 
 class S3Storage(FileStorageInterface):
 
@@ -27,6 +28,7 @@ class S3Storage(FileStorageInterface):
          "endpoint_url": endpoint_url,
          "aws_access_key_id": access_key,
          "aws_secret_access_key": secret_key,
+         "verify": False if not S3_SSL_CERT else os.path.expanduser(S3_SSL_CERT),
       }
 
       self.bucket_name = bucket_name
