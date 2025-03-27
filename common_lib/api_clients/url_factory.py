@@ -31,7 +31,7 @@ class GrafanaUrlFactory(UrlFactoryBase):
         super().__init__(
             host=host,
             port=port,
-            protocol=protocol
+            protocol=protocol.value
         )
 
     @property
