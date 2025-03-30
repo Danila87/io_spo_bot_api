@@ -10,7 +10,7 @@ class UrlFactoryBase:
     ):
         self._host = host
         self._port = port
-        self._protocol = protocol
+        self._protocol = protocol.value
 
     @property
     def base_url(self):
