@@ -1,9 +1,13 @@
 from sqlalchemy.orm import DeclarativeBase, relationship
-from sqlalchemy import ForeignKey, Column, String, Integer, Date
+from sqlalchemy import ForeignKey, Column, String, Integer, Date, LargeBinary, inspect, DateTime, func
 
 
 class Base(DeclarativeBase):
-    pass
+    def to_dict(self):
+        return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+
+    dt_create = Column(DateTime, server_default=func.now())
+    dt_update = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class Songs(Base):
@@ -37,10 +41,24 @@ class Requests(Base):
 
     id = Column(Integer, primary_key=True)
 
-    id_user = Column(Integer, ForeignKey('Users.id'))
-    id_song = Column(Integer, ForeignKey('Songs.id'))
+    id_user = Column(Integer, ForeignKey('TelegramUsers.id'), nullable=True)
+    id_request_type = Column(Integer, ForeignKey('RequestTypes.id'))
+    id_content = Column(Integer)
 
-    date = Column(Date)
+    content_display_value = Column(String(100))
+
+    rel_user = relationship('TelegramUsers', back_populates='rel_requests')
+    rel_request_type = relationship('RequestTypes', back_populates='rel_requests')
+
+
+class RequestTypes(Base):
+
+    __tablename__ = 'RequestTypes'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(50))
+
+    rel_requests = relationship('Requests', back_populates='rel_request_type')
 
 
 class Users(Base):
@@ -48,14 +66,26 @@ class Users(Base):
     __tablename__ = 'Users'
 
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer)
+
+    login = Column(String(50), unique=True)
+    password = Column(LargeBinary)
+
+    email = Column(String(150), nullable=True)
+
+
+class TelegramUsers(Base):
+
+    __tablename__ = 'TelegramUsers'
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, unique=True)
 
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     nickname = Column(String)
 
-    reviews = relationship('Reviews', back_populates='users')
-
+    reviews = relationship('Reviews', back_populates='tg_users')
+    rel_requests = relationship('Requests', back_populates='rel_user')
 
 class SongBooks(Base):
 
@@ -72,13 +102,13 @@ class Reviews(Base):
     __tablename__ = 'Reviews'
 
     id = Column(Integer, primary_key=True)
-    id_user = Column(Integer, ForeignKey('Users.id'))
+    id_user = Column(Integer, ForeignKey('TelegramUsers.telegram_id'))
 
     text_review = Column(String(500))
     looked_status = Column(Integer)
     created_data = Column(Date)
 
-    users = relationship('Users', back_populates='reviews')
+    tg_users = relationship('TelegramUsers', back_populates='reviews')
 
 
 class MethodicalBookChapters(Base):
@@ -88,14 +118,14 @@ class MethodicalBookChapters(Base):
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, nullable=True)
 
-    title = Column(String(50))
+    title = Column(String(200))
     file_path = Column(String(300), nullable=True)
 
 
 class PiggyBankGroups(Base):
 
     """
-    Чет я заебланил и обозвал по странному. Таблица предназначена для хранения возрастов детей или групп
+    Чет я заебланил и обозвал по-странному. Таблица предназначена для хранения возрастов детей или групп
     """
 
     __tablename__ = 'PiggyBankGroups'

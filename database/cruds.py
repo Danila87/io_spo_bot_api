@@ -1,154 +1,485 @@
-from __future__ import annotations
+import asyncio
 
-from . import models
-from .connection import db_session
+from common_lib.logger import logger
+from .db_connection import postgres_db
 
-from pydantic import BaseModel
+from schemas import pyggy_bank as pb_schemes
+from schemas.service import RequestCreate
 
-from pydantic_schemes import schemes
-from pydantic_schemes.Song import schemes as song_schemes
-from pydantic_schemes.PyggyBank import schemes as pb_schemes
-
-from sqlalchemy import select, and_
-from sqlalchemy.orm import selectinload, DeclarativeBase
-
-from fastapi.encoders import jsonable_encoder
-
+from sqlalchemy import select, and_, inspect, update
+from sqlalchemy.orm import DeclarativeBase, selectinload
 from fuzzywuzzy import fuzz
 
-from typing import Literal, Type, TypeVar
+from typing import (
+    Type,
+    List,
+    Union,
+    Dict,
+    Optional
+)
 
-any_schema = TypeVar('any_schema', bound=BaseModel)
+from .models import (
+    Base,
+    CategorySong,
+    Songs,
+    PiggyBankKTD,
+    PiggyBankGroupsForKTD,
+    PiggyBankLegends,
+    PiggyBankGroupsForLegend,
+    PiggyBankGames,
+    PiggyBankGroupForGame,
+    PiggyBankTypesGamesForGame,
+    RequestTypes,
+    Requests
+)
+
+from abc import ABC, abstractmethod
+
+from functools import wraps
+
+##### Абстрактные классы #####
+
+class CRUDManagerInterface(ABC):
+
+    @abstractmethod
+    def get_data(self):
+        pass
+
+    @abstractmethod
+    def insert_data(self):
+        pass
+
+    @abstractmethod
+    def update_data(self):
+        pass
+
+    @abstractmethod
+    def delete_data(self):
+        pass
+
+##############################
 
 
-class BaseCruds:
+##### Классы SQL #####
+
+
+class CRUDManagerSQL(CRUDManagerInterface):
+
+    @classmethod
+    def get_primary_key(
+            cls,
+            model: Type[DeclarativeBase]
+    ):
+        name_primary_key = (inspect(model)).primary_key[0].key
+        return getattr(model, name_primary_key)
+
+    @classmethod
+    def get_model_columns(
+            cls,
+            model: Type[DeclarativeBase]
+    ):
+        inspector = inspect(model)
+        keys = inspector.columns.keys()
+
+        return keys
+
+    @classmethod
+    def check_body(
+            cls,
+            model: Type[DeclarativeBase],
+            body: Dict
+    ) -> List[str]:
+        model_keys = cls.get_model_columns(
+            model=model
+        )
+        return [key for key, value in body.items() if key not in model_keys]
+
 
     @staticmethod
-    async def get_all_data(model: Type[DeclarativeBase], schema: Type[BaseModel]) -> list[any_schema]:
+    def check_body_decorator(func):
+        @wraps(func)
+        async def wrapper(
+                *args,
+                **kwargs
+        ):
+            error_keys = []
+            model = kwargs.get('model')
+            body = kwargs.get('row_filter') or kwargs.get('body')
 
-        async with db_session() as session:
+            if body:
+                error_keys = CRUDManagerSQL.check_body(
+                    model=model,
+                    body=body
+                )
+
+            return await func(
+                *args,
+                **kwargs
+            ) if not error_keys else f'Данные ключи отсутствуют в модели: {error_keys}'
+
+        return wrapper
+
+    @classmethod
+    @check_body_decorator
+    async def get_data(
+            cls,
+            model: Type[DeclarativeBase],
+            row_id: Optional[Union[int| List[int]]] = None,
+            row_filter: Optional[Dict] = None
+    ) -> List[Base]:
+
+        primary_key = cls.get_primary_key(
+            model=model
+        )
+
+        async with postgres_db.db_session() as session:
             query = select(model)
-            result = await session.execute(query)
 
+            if isinstance(row_id, List):
+                query = query.filter(primary_key.in_(row_id))
+
+            elif isinstance(row_id, int):
+                query = query.filter(primary_key == row_id)
+
+            if row_filter:
+                query = query.filter_by(**row_filter)
+
+            result = await session.execute(query)
             data = result.scalars().all()
-
-            return [schema.model_validate(jsonable_encoder(item)) for item in data]
-
-    @staticmethod
-    async def get_data_by_id(model,
-                             model_id: int,
-                             schema: Type[BaseModel],
-                             encode: bool = True, ) -> any_schema | bool:
-
-        async with db_session() as session:
-
-            query = select(model).filter(model.id == model_id)
-
-            result = await session.execute(query)
-            data = result.scalar_one_or_none()
-
-            if not data:
-                return False
-
-            if encode:
-                print(jsonable_encoder(data))
-                return schema.model_validate(jsonable_encoder(data))
 
             return data
 
-    @staticmethod
-    async def delete_data_by_id(model, model_id: int) -> bool:
+    @classmethod
+    @check_body_decorator
+    async def delete_data(
+            cls,
+            model: Type[DeclarativeBase],
+            row_id: Optional[Union[int | List[int]]] = None,
+            row_filter: Optional[Dict] = None
+    ) -> bool:
 
-        async with db_session() as session:
-            data = await BaseCruds.get_data_by_id(model=model, model_id=model_id, encode=False)
-
-            await session.delete(data)
-            await session.commit()
-
-            return True
-
-    @staticmethod
-    async def get_data_by_filter(model,
-                                 schema: Type[BaseModel],
-                                 verify: bool = False,
-                                 **kwargs) -> list[any_schema] | bool:
-
-        async with db_session() as session:
-
-            query = select(model).filter_by(**kwargs)
-            result = await session.execute(query)
-
-            data = result.scalars().all()
-
-            if verify:
-
-                if len(data) == 0:
-                    return False
-
-                return True
-            print(jsonable_encoder(data))
-            return [schema.model_validate(jsonable_encoder(item)) for item in data]
-
-    @staticmethod
-    async def insert_data(model, **kwargs) -> bool:
-        async with db_session() as session:
-            data = model(**kwargs)
-            session.add(data)
-
-            await session.commit()
-
-            return True
-
-
-class SongCruds:
-
-    @staticmethod
-    async def get_all_songs_by_category() -> list[song_schemes.SongsByCategory]:
-
-        async with db_session() as session:
-            query = select(models.CategorySong).options(selectinload(models.CategorySong.rel_songs))
-
-            result = await session.execute(query)
-            result = result.scalars().all()
-
-            return [song_schemes.SongsByCategory.model_validate(jsonable_encoder(item)) for item in result]
-
-    @staticmethod
-    async def search_all_songs_by_title(title_song: str) -> list[song_schemes.SongSearch] | bool:
-
-        all_songs = await BaseCruds.get_all_data(model=models.Songs,
-                                                 schema=song_schemes.SongResponse)
-        result_songs = []
-
-        for song in all_songs:
-
-            if fuzz.WRatio(song.title, title_song) < 75:
-                continue
-
-            result_songs.append(
-                song_schemes.SongSearch.model_validate({
-                    'id_song': song.id,
-                    'title_song': song.title
-                })
+        async with postgres_db.db_session() as session:
+            rows = await cls.get_data(
+                model=model,
+                row_id=row_id,
+                row_filter=row_filter
             )
 
-        if not result_songs:
-            return False
+            for row in rows:
+                await session.delete(row)
 
-        return result_songs
+            try:
+                await session.commit()
+                return True
+
+            except Exception as e:
+                logger.error(f'Возникла ошибка при удалении {e}')
+                session.rollback()
+                return False
 
 
-class PiggyBankCruds:
+    @classmethod
+    @check_body_decorator
+    async def insert_data(
+            cls,
+            model: Type[DeclarativeBase],
+            body: Union[List[Dict], Dict]
+    ) -> bool:
 
-    @staticmethod
-    async def get_game_by_group_type(group_id: int, type_id: int) -> list[pb_schemes.PiggyBankGameResponse]:
+        async with postgres_db.db_session() as session:
+            if isinstance(body, List):
+                data = [model(**row) for row in body]
+            else:
+                data = [model(**body)]
+            session.add_all(data)
 
-        async with db_session() as session:
-            query = select(models.PiggyBankGames).where(
+            try:
+                await session.commit()
+                return True
+
+            except Exception as e:
+                logger.error(f'Возникала непредвиденная ошибка при вставке {e}')
+                await session.rollback()
+                return False
+
+    @classmethod
+    @check_body_decorator
+    async def update_data(
+            cls,
+            model: Type[DeclarativeBase],
+            row_id: int,
+            body: Dict
+    ) -> bool:
+        primary_key = cls.get_primary_key(
+            model=model
+        )
+
+        async with postgres_db.db_session() as session:
+            query = update(model).filter(primary_key == row_id).values(**body)
+            await session.execute(query)
+
+            try:
+                await session.commit()
+                return True
+
+            except Exception as e:
+                logger.error(f'Возникала непредвиденная ошибка при обновлении {e}')
+                session.rollback()
+                return False
+
+    @classmethod
+    async def search_by_title(
+            cls,
+            title_search
+    ):
+        async def get_data_with_key(key, model, column_view):
+            # Получаем данные а затем фильтруем их по поисковой строке
+            data = await cls.get_data(model=model)
+            filtered_data = [row for row in data if fuzz.WRatio(getattr(row, column_view).lower(), title_search) > 60]
+
+            return key, filtered_data
+
+        models_search = {
+            'songs': {'model': Songs, 'column_view': 'title'},
+            'ktds': {'model': PiggyBankKTD, 'column_view': 'title'},
+            'legends': {'model': PiggyBankLegends, 'column_view': 'title'},
+            'games': {'model': PiggyBankGames, 'column_view': 'title'}
+        }
+
+        tasks = [
+            get_data_with_key(
+                key=key,
+                model=model_data['model'],
+                column_view=model_data['column_view']
+            )
+            for key, model_data in models_search.items()
+        ]
+
+        result = dict(await asyncio.gather(*tasks))
+
+        # Перед возвратом удаляем пустые ключи
+        return result
+
+    @classmethod
+    async def insert_request(
+            cls,
+            request_type_title: str,
+            body: RequestCreate
+    ):
+        if not (request_type := await cls.get_data(
+            model=RequestTypes,
+            row_filter={
+                'title': request_type_title
+            }
+        )):
+            return
+
+        request_data = dict(body)
+        request_data['id_request_type'] = request_type[0].id
+
+        await cls.insert_data(
+            model=Requests,
+            body=dict(request_data)
+        )
+
+
+class SongCruds(CRUDManagerSQL):
+
+    @classmethod
+    async def get_all_songs_by_category(
+            cls
+    ) -> List[Songs]:
+
+        async with postgres_db.db_session() as session:
+            query = select(CategorySong).join(Songs, CategorySong.id == Songs.category, isouter=True)
+            query_result = await session.execute(query)
+            data = query_result.scalars().all()
+
+            return data
+
+    @classmethod
+    async def search_all_songs_by_title(
+            cls,
+            title_song: str
+    ) -> List[Songs]:
+
+        all_songs = await cls.get_data(
+            model=Songs,
+        )
+
+        return [song for song in all_songs if fuzz.WRatio(song.title, title_song) > 75]
+
+
+class KTDCruds(CRUDManagerSQL):
+
+    @classmethod
+    async def insert_ktd_transaction(
+            cls,
+            data: pb_schemes.PiggyBankBaseStructureCreate
+    ) -> Optional[int]:
+
+        async with postgres_db.db_session() as session:
+
+            try:
+                async with session.begin():
+                    item_data = PiggyBankKTD(
+                        title=data.title,
+                        description=data.description,
+                    )
+
+                    session.add(item_data)
+                    await session.flush()
+                    await session.refresh(item_data)
+
+                    for g_id in data.group_id:
+                        session.add(
+                            PiggyBankGroupsForKTD(
+                                group_id=g_id,
+                                ktd_id=item_data.id
+                            )
+                        )
+
+                    await session.flush()
+
+                    return item_data.id
+
+            except Exception as e:
+                logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
+                await session.rollback()
+                return None
+
+    @classmethod
+    async def get_ktd_by_group(
+            cls,
+            group_id: int
+    ) -> List[PiggyBankKTD]:
+
+        async with postgres_db.db_session() as session:
+            query = select(PiggyBankKTD).where(
+                PiggyBankKTD.rel_groups.any(PiggyBankGroupsForKTD.group_id == group_id)
+            )
+
+            result = await session.execute(query)
+            data = result.scalars().all()
+
+            return data
+
+
+class LegendCruds(CRUDManagerSQL):
+
+    @classmethod
+    async def insert_legend_transaction(
+            cls,
+            data: pb_schemes.PiggyBankBaseStructureCreate
+    ) -> Optional[int]:
+
+        async with postgres_db.db_session() as session:
+
+            try:
+                async with session.begin():
+                    item_data = PiggyBankLegends(
+                        title=data.title,
+                        description=data.description,
+                    )
+
+                    session.add(item_data)
+                    await session.flush()
+                    await session.refresh(item_data)
+
+                    for g_id in data.group_id:
+                        session.add(
+                            PiggyBankGroupsForLegend(
+                                group_id=g_id,
+                                legend_id=item_data.id
+                            )
+                        )
+
+                    await session.flush()
+
+                    return item_data.id
+
+            except Exception as e:
+                logger.error(f'При создании легенды возникла ошибка: {e}')
+                await session.rollback()
+                return
+
+    @classmethod
+    async def get_legends_by_group(
+            cls,
+            group_id: int
+    ) -> List[PiggyBankLegends]:
+
+        async with postgres_db.db_session() as session:
+            query = select(PiggyBankLegends).where(
+                PiggyBankLegends.rel_groups.any(PiggyBankGroupsForLegend.group_id == group_id)
+            )
+
+            result = await session.execute(query)
+            data = result.scalars().all()
+
+            return data
+
+
+class GameCruds(CRUDManagerSQL):
+
+
+    @classmethod
+    async def insert_game_transaction(
+            cls,
+            game: pb_schemes.PiggyBankGameCreate
+    ) -> Optional[int]:
+
+        async with postgres_db.db_session() as session:
+
+            try:
+                async with session.begin():
+                    game_data = PiggyBankGames(
+                        title=game.title,
+                        description=game.description
+                    )
+
+                    session.add(game_data)
+                    await session.flush()
+                    await session.refresh(game_data)
+
+                    for type_id in game.type_id:
+                        session.add(
+                            PiggyBankTypesGamesForGame(
+                                type_id=type_id,
+                                game_id=game_data.id
+                            )
+                        )
+
+                    for group_id in game.group_id:
+                        session.add(
+                            PiggyBankGroupForGame(
+                                group_id=group_id,
+                                game_id=game_data.id
+                            )
+                        )
+
+                    await session.flush()
+
+                    return game_data.id
+
+            except Exception as e:
+                logger.error(f'Возникла ошибка при создании игры {e}')
+                return None
+
+
+    @classmethod
+    async def get_game_by_group_type(
+            cls,
+            group_id: int,
+            type_id: int
+    ) -> List[PiggyBankGames]:
+
+        async with postgres_db.db_session() as session:
+            query = select(PiggyBankGames).where(
                 and_(
 
-                    models.PiggyBankGames.rel_types_for_game.any(models.PiggyBankTypesGamesForGame.type_id == type_id),
-                    models.PiggyBankGames.rel_groups_for_game.any(models.PiggyBankGroupForGame.group_id == group_id)
+                    PiggyBankGames.rel_types_for_game.any(PiggyBankTypesGamesForGame.type_id == type_id),
+                    PiggyBankGames.rel_groups_for_game.any(PiggyBankGroupForGame.group_id == group_id)
 
                 )
             )
@@ -156,94 +487,45 @@ class PiggyBankCruds:
             result = await session.execute(query)
             data = result.scalars().all()
 
-            return [pb_schemes.PiggyBankGameResponse.model_validate(jsonable_encoder(item)) for item in data]
+            return data
 
-    @staticmethod
-    async def insert_game_transaction(game: pb_schemes.PiggyBankGameCreate):
 
-        data = dict(game)
+    @classmethod
+    async def check_available_game(
+            cls,
+            title: str,
+            type_ids: List[int],
+            group_ids: List[int],
+    ) -> pb_schemes.IntersectionGroupTypeIds:
+        '''
+        Функция получает уже созданные type_id и group_id на игру.
+        Сверяет с параметрами и если все созданные ids есть в параметрах, то считаем что такая игра уже есть
+        '''
+        async with postgres_db.db_session() as session:
 
-        game_data = {
-            'title': data['title'],
-            'description': data['description'],
-            'file_path': data['file_path']
-        }
-
-        type_id, group_id = data['type_id'], data['group_id']
-
-        async with db_session() as session:
-
-            async with session.begin():
-
-                try:
-
-                    game_data = models.PiggyBankGames(**game_data)
-
-                    session.add(game_data)
-                    await session.flush()
-                    await session.refresh(game_data)
-
-                    session.add(models.PiggyBankTypesGamesForGame(type_id=type_id, game_id=game_data.id))
-                    session.add(models.PiggyBankGroupForGame(group_id=group_id, game_id=game_data.id))
-
-                    await session.flush()
-
-                    return True
-
-                except:
-                    await session.rollback()
-                    return False
-
-    @staticmethod
-    async def insert_ktd_or_legend_transaction(
-            item_model,
-            item_type: Literal['ktd', 'legend'],
-            data: pb_schemes.PiggyBankBaseStructureCreate) -> bool:
-
-        data = dict(data)
-
-        item_data = {
-            'title': data['title'],
-            'description': data['description'],
-            'file_path': data['file_path']
-        }
-
-        group_id = data['group_id']
-
-        async with db_session() as session:
-            async with session.begin():
-
-                try:
-                    item_data = item_model(**item_data)
-
-                    session.add(item_data)
-                    await session.flush()
-                    await session.refresh(item_data)
-
-                    if item_type == 'ktd':
-                        session.add(models.PiggyBankGroupsForKTD(group_id=group_id, ktd_id=item_data.id))
-                    elif item_type == 'legend':
-                        session.add(models.PiggyBankGroupsForLegend(group_id=group_id, legend_id=item_data.id))
-
-                    await session.flush()
-                    
-                    return True
-                
-                except Exception as e:
-                    await session.rollback()
-                    return False
-
-    @staticmethod
-    async def get_legends_or_krd_by_group(item_model,
-                                          mtm_model,
-                                          group_id: int) -> list[pb_schemes.PiggyBankBaseStructureResponse]:
-
-        async with db_session() as session:
-            query = select(item_model).where(
-                item_model.rel_groups.any(mtm_model.group_id == group_id)
+            query = select(PiggyBankGames).filter(PiggyBankGames.title == title).options(
+                selectinload(PiggyBankGames.rel_types_for_game),
+                selectinload(PiggyBankGames.rel_groups_for_game),
             )
 
             result = await session.execute(query)
-            data = result.scalars().all()
+            data = result.scalars().first()
 
-            return [pb_schemes.PiggyBankBaseStructureResponse.model_validate(jsonable_encoder(item)) for item in data]
+            if not data:
+                return pb_schemes.IntersectionGroupTypeIds (
+                group_ids=[],
+                type_ids=[]
+            )
+
+            available_group_ids = [row.group_id for row in data.rel_groups_for_game]
+            available_type_ids = [row.type_id for row in data.rel_types_for_game]
+
+            new_type_ids = list(set(available_type_ids).intersection(set(type_ids)))
+            new_group_ids = list(set(available_group_ids).intersection(set(group_ids)))
+
+            return pb_schemes.IntersectionGroupTypeIds(
+                group_ids=new_group_ids,
+                type_ids=new_type_ids
+            )
+
+########################
