@@ -41,7 +41,7 @@ services:
     ports:
       - 9090:9090
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./conf/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
 
@@ -56,8 +56,25 @@ services:
       - redis_data:/redis/
     restart: always
 
+  vault:
+    container_name: vault
+    image: hashicorp/vault
+    restart: always
+    command: vault server -config=/vault/config/vault.json
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 8200:8200
+    environment:
+      - VAULT_ADDR=http://0.0.0.0:8200
+      - VAULT_API_ADDR=http://0.0.0.0:8200
+      - VAULT_ADDRESS=http://0.0.0.0:8200
+    volumes:
+      - vault:/vault
+      - ./conf/vault.json:/vault/config/vault.json
 volumes:
   redis_data:
   postgres:
   prometheus_data:
   grafana_data:
+  vault:
