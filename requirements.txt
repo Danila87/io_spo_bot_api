@@ -12,3 +12,4 @@ prometheus-fastapi-instrumentator==7.0.2
 alembic==1.13.1
 greenlet==3.0.3
 psycopg2-binary==2.9.9
+hvac==2.3.0
