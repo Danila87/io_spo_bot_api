@@ -10,6 +10,11 @@
       "path": "/vault/file"
     }
   },
+  "storage": {
+    "file": {
+      "path": "/vault/data"
+    }
+  },
   "default_lease_ttl": "168h",
   "max_lease_ttl": "0h",
   "api_addr": "http://0.0.0.0:8200",
