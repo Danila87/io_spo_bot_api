@@ -8,7 +8,7 @@ from common_lib.logger import logger
 load_dotenv()
 
 client = hvac.Client(
-    url='http://127.0.0.1:8200',
+    url=os.environ.get('VAULT_URL'),
     token=os.environ.get('VAULT_TOKEN'),
 )
 
