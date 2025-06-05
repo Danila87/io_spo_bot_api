@@ -1,10 +1,12 @@
 import asyncio
+from datetime import datetime, timedelta
 
 from common_lib.logger import logger
 from .db_connection import postgres_db
 
 from schemas import pyggy_bank as pb_schemes
 from schemas.service import RequestCreate
+from schemas.song_event import SongEventCreate, SongEventCreateWithSong
 
 from sqlalchemy import select, and_, inspect, update
 from sqlalchemy.orm import DeclarativeBase, selectinload
@@ -30,7 +32,9 @@ from .models import (
     PiggyBankGroupForGame,
     PiggyBankTypesGamesForGame,
     RequestTypes,
-    Requests
+    Requests,
+    SongEvents,
+    SongsForSongsEvent
 )
 
 from abc import ABC, abstractmethod
@@ -164,6 +168,9 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 row_id=row_id,
                 row_filter=row_filter
             )
+
+            if not rows:
+                return False
 
             for row in rows:
                 await session.delete(row)
@@ -528,4 +535,71 @@ class GameCruds(CRUDManagerSQL):
                 type_ids=new_type_ids
             )
 
-########################
+
+class SongEventCruds(CRUDManagerSQL):
+    @classmethod
+    async def insert_song_event(
+        cls,
+        song_event: SongEventCreateWithSong
+    ) -> Dict:
+
+        song_ids = song_event.song_ids if song_event.song_ids else []
+        song_event = SongEventCreate(
+            **song_event.model_dump()
+        )
+
+        song_event.end_dt = song_event.start_dt + timedelta(days=song_event.duration)
+
+        event_data = SongEvents(
+            **song_event.model_dump()
+        )
+
+        async with postgres_db.db_session() as session:
+
+            try:
+                async with session.begin():
+                    session.add(event_data)
+                    await session.flush()
+                    await session.refresh(event_data)
+
+                    for song_id in song_ids:
+                        session.add(
+                            SongsForSongsEvent(
+                                song_id=song_id,
+                                event_id=event_data.id
+                            )
+                        )
+
+                    await session.flush()
+
+                    return event_data.to_dict()
+
+            except Exception as e:
+                logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
+                await session.rollback()
+                return None
+
+    @classmethod
+    async def get_song_event(
+        cls,
+        is_actual: bool = False,
+        row_id: Optional[Union[int | List[int]]] = None,
+    ):
+        async with postgres_db.db_session() as session:
+            query = select(SongEvents).options(
+                selectinload(SongEvents.rel_songs)
+            )
+
+            if isinstance(row_id, List):
+                query = query.filter(SongEvents.id.in_(row_id))
+
+            elif isinstance(row_id, int):
+                query = query.filter(SongEvents.id == row_id)
+
+            if is_actual:
+                query = query.filter(SongEvents.end_dt > datetime.now())
+
+            result = await session.execute(query)
+            data = result.scalars().all()
+
+            return data
