@@ -22,7 +22,7 @@ class Songs(Base):
     category = Column(Integer, ForeignKey('CategorySong.id', ondelete='SET NULL'), nullable=True)
 
     rel_category = relationship('CategorySong', back_populates='rel_songs')
-
+    rel_events = relationship('SongsForSongsEvent', back_populates='rel_songs')
 
 class CategorySong(Base):
 
@@ -255,3 +255,30 @@ class PiggyBankGroupsForKTD(Base):
 
     rel_ktd = relationship('PiggyBankKTD', back_populates='rel_groups')
     rel_groups = relationship('PiggyBankGroups', back_populates='rel_group_for_ktd')
+
+
+class SongEvents(Base):
+    __tablename__ = 'SongEvents'
+
+    id = Column(Integer, primary_key=True)
+
+    title = Column(String(100), nullable=False)
+
+    start_dt = Column(DateTime, nullable=False)
+    end_dt = Column(DateTime, nullable=False)
+
+    duration = Column(Integer, nullable=False)
+
+    rel_songs = relationship('SongsForSongsEvent', back_populates='rel_events', cascade='delete')
+
+
+class SongsForSongsEvent(Base):
+    __tablename__ = 'SongsForSongsEvent'
+
+    id = Column(Integer, primary_key=True)
+
+    event_id = Column(Integer, ForeignKey('SongEvents.id'))
+    song_id = Column(Integer, ForeignKey('Songs.id'))
+
+    rel_events = relationship('SongEvents', back_populates='rel_songs')
+    rel_songs = relationship('Songs', back_populates='rel_events')
