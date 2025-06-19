@@ -1,0 +1,18 @@
+name: Building/Push DockerImage telegram_bot_api
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  task1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Авторизация в Docker
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
