@@ -26,3 +26,4 @@ jobs:
         with:
           push: true
           tags: danila87/io_spo_bot_api:latest
+          file: docker/Dockerfile
