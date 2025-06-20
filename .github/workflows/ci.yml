@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  task1:
+  Build_and_publish:
     runs-on: ubuntu-latest
 
     permissions:
