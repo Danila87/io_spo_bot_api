@@ -15,7 +15,9 @@ song_router = APIRouter(prefix='/songs', tags=['all_song_methods'])
 
 @song_router.post(path='/', tags=['song'])
 async def insert_song(
-        song: song_schemes.SongCreate
+        song: Annotated[song_schemes.SongCreate, Body(
+            description="Тело песни"
+        )]
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
@@ -57,25 +59,47 @@ async def get_songs(
         user_id: Annotated[Optional[int], Query(
             description="Id пользователя telegram"
         )] = None,
+        category_id: Annotated[Optional[int], Query(
+            description="Id категории, песни которой нужно получить"
+        )] = None
 ):
 
-    if not (songs := await CRUDManagerSQL.get_data(
-            model=models.Songs,
-            row_id=song_ids,
-    )):
-        raise HTTPException(
-            status_code=404,
-            detail='Не найдена песня с указанным id'
-        )
+    row_filter = {"category": category_id} if category_id else None
 
-    # await CRUDManagerSQL.insert_request(
-    #     request_type_title='Песня',
-    #     body=RequestCreate(
-    #         id_content=data[0].id,
-    #         id_user=user_id,
-    #         content_display_value=data[0].title
-    #     )
-    # )
+    songs = await CRUDManagerSQL.get_data(
+        model=models.Songs,
+        row_id=song_ids,
+        row_filter=row_filter
+    )
+
+    await CRUDManagerSQL.insert_request(
+        request_type_title='Песня',
+        body=[RequestCreate(
+            id_content=song.id,
+            id_user=user_id,
+            content_display_value=song.title
+        ) for song in songs]
+    )
+
+    return ResponseData(
+        data=songs,
+        meta=Meta(total=len(songs))
+    )
+
+@song_router.get(
+    path='/search',
+    tags=['song'],
+    response_model=ResponseData[song_schemes.SongResponse]
+)
+async def search_songs_by_title(
+    title_song: Annotated[str, Query(
+        description="Текст, по которому осуществляется поиск"
+    )],
+):
+
+    songs = await SongCruds.search_all_songs_by_title(
+        title_song=title_song
+    )
 
     return ResponseData(
         data=songs,
@@ -124,7 +148,7 @@ async def delete_song_by_id(
 
 
 @song_router.get(
-    path='/categories/',
+    path='/categories',
     tags=['category'],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
@@ -150,7 +174,7 @@ async def get_categories(
     )
 
 @song_router.get(
-    path='/categories/childrens/',
+    path='/categories/childrens',
     tags=['category'],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
@@ -173,9 +197,9 @@ async def get_childs_categories(
     )
 
 
-@song_router.post('/categories/', tags=['category'])
+@song_router.post('/categories', tags=['category'])
 async def insert_category(
-        category: song_schemes.CategorySongCreate
+        category: Annotated[song_schemes.CategorySongCreate, Body()]
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
@@ -204,56 +228,25 @@ async def insert_category(
         detail={'Произошла ошибка при создании категории.'}
     )
 
-@song_router.get('/songs/by_category', tags=['song', 'category'])
-async def get_songs_by_category() -> List[song_schemes.SongsByCategoryResponse]:
-
-    data = await SongCruds.get_all_songs_by_category()
-
-    return [
-        song_schemes.SongsByCategoryResponse(**row.to_dict()) for row in data
-    ]
-
-@song_router.get('/songs/by_category/', tags=['song', 'category'])
-async def get_songs_by_category(
-        category_id: int
-) -> List[song_schemes.SongResponse]:
-
-    data = await CRUDManagerSQL.get_data(
-        model=models.Songs,
-        row_filter={
-            'category': category_id
-        }
-    )
-
-    return [
-        song_schemes.SongResponse(**row.to_dict()) for row in data
-    ]
-
-
-@song_router.post('/songs/search_title', tags=['song'])
-async def search_songs_by_title(
-        request_data: song_schemes.SongSearch
-) -> List[song_schemes.SongResponse]:
-
-    data = await SongCruds.search_all_songs_by_title(
-        title_song=request_data.title_song
-    )
-
-    return [
-        song_schemes.SongResponse(**row.to_dict()) for row in data
-    ]
-
 
 @song_router.put('/categories/', tags=['category'])
-async def update_category_by_id(category_id: int):
-
+async def update_category(
+    category_id: Annotated[int, Query(
+        description="Id категории"
+    )],
+    category: Annotated[song_schemes.CategorySongCreate, Body(
+        description="Тело категории"
+    )]
+):
     # TODO добавить схему
     pass
 
 
 @song_router.delete('/categories/', tags=['category'])
-async def delete_category_by_id(
-        category_id: int
+async def delete_category(
+        category_id: Annotated[int, Query(
+            description="Id категории"
+        )]
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.delete_data(
@@ -270,20 +263,3 @@ async def delete_category_by_id(
         status_code=500,
         detail='Произошла ошибка на сервере'
     )
-
-
-@song_router.get('/by_category/', tags=['category'])
-async def get_songs_by_category(
-        category_id: int
-) -> List[song_schemes.SongResponse]:
-
-    data = await CRUDManagerSQL.get_data(
-        model=models.Songs,
-        row_filter={
-            'category_id': category_id
-        }
-    )
-
-    return [
-        song_schemes.SongResponse(**row.to_dict()) for row in data
-    ]
