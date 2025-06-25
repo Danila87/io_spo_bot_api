@@ -1,6 +1,7 @@
 import urllib.parse
 
 from fastapi import APIRouter, UploadFile, Form, File, HTTPException
+from fastapi.params import Query, Body
 
 from starlette.responses import JSONResponse, Response
 
@@ -12,60 +13,71 @@ from database.cruds import CRUDManagerSQL
 
 from typing import Annotated, List, Optional
 
-from schemas.methodical_book import MethodicalChapterCreate
 from schemas.service import AdditionalPath
+from schemas.responses import ResponseData, Meta, ResponseDelete
 
 methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_book'])
 
-@methodical_book_router.get('/chapters/mains', tags=['methodical_book'], )
-async def get_main_chapters() -> List[mb_schemes.MethodicalChaptersResponse]:
 
-    data = await CRUDManagerSQL.get_data(
+@methodical_book_router.get(
+    path='/chapters',
+    tags=['methodical_book'],
+    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
+)
+async def get_chapter(
+    id_chapter: Annotated[List[int], Query(
+        description="Список id категорий"
+    )] = None,
+    only_parents: Annotated[bool, Query(
+        description="Вернуть главы у которых нет родителя."
+    )] = False
+):
+    row_filter = {"parent_id": None} if only_parents else {}
+
+    chapters = await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
-        row_filter={
-            'parent_id':None
-        }
+        row_id=id_chapter,
+        row_filter=row_filter
     )
 
-    return [
-        mb_schemes.MethodicalChaptersResponse(**row.to_dict()) for row in data
-    ]
+    return ResponseData(
+        data=chapters,
+        meta=Meta(total=len(chapters))
+    )
 
-@methodical_book_router.get('/chapters/')
-async def get_chapter(
-        id_chapter: int
-) -> mb_schemes.MethodicalChaptersResponse:
-    if not (data := await CRUDManagerSQL.get_data(
-        model=models.MethodicalBookChapters,
-        row_id=id_chapter
-    )):
-        raise HTTPException(
-            status_code=404,
-            detail={'message': 'Данный раздел не найден'}
-        )
 
-    return mb_schemes.MethodicalChaptersResponse(**data[0].to_dict())
-
-@methodical_book_router.get('/chapters/get_children/', tags=['methodical_book'])
+@methodical_book_router.get(
+    path='/chapters/childrens',
+    tags=['methodical_book'],
+    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
+)
 async def get_child_chapters(
-        id_chapter: Optional[int] = None
-) -> List[mb_schemes.MethodicalChaptersResponse]:
+        id_chapter: Annotated[int, Query(
+            description="Id главы, детей которой нужно получить"
+        )]
+):
 
-    data = await CRUDManagerSQL.get_data(
+    chapters = await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
         row_filter={
             'parent_id': id_chapter
         }
     )
 
-    return [
-        mb_schemes.MethodicalChaptersResponse(**row.to_dict()) for row in data
-    ]
+    return ResponseData(
+        data=chapters,
+        meta=Meta(total=len(chapters))
+    )
 
 
-@methodical_book_router.post('/chapters/', tags=['methodical_book'])
+@methodical_book_router.post(
+    path='/chapters',
+    tags=['methodical_book']
+)
 async def create_chapter_methodical_book(
-        chapter_data: MethodicalChapterCreate,
+    chapter_data: Annotated[mb_schemes.MethodicalChapterCreate, Body(
+        description="Тело главы",
+    )],
 ) -> JSONResponse:
 
     if await CRUDManagerSQL.get_data(
@@ -97,10 +109,18 @@ async def create_chapter_methodical_book(
         content={'message': 'Запись сохранена'}
     )
 
-@methodical_book_router.put('/chapters/upload_file')
+
+@methodical_book_router.put(
+    path='/chapters/file',
+    tags=['methodical_book']
+)
 async def chapter_upload_file(
-        chapter_id: int,
-        file: Annotated[UploadFile, File()]
+        chapter_id: Annotated[int, Query(
+            description="Id главы"
+        )],
+        file: Annotated[UploadFile, File(
+            description="Файл для главы"
+        )]
 ):
     if not await file_manager.save_file(
             file=file,
@@ -128,9 +148,14 @@ async def chapter_upload_file(
         content={'message': 'Запись сохранена'}
     )
 
-@methodical_book_router.get('/chapters/file/', tags=['methodical_book'], response_model=None)
+@methodical_book_router.get(
+    path='/chapters/file',
+    tags=['methodical_book']
+)
 async def get_chapter_file(
-        chapter_id: int
+        chapter_id: Annotated[int, Query(
+            description="Id главы"
+        )]
 ) -> Response:
 
     if not (chapter := await CRUDManagerSQL.get_data(
