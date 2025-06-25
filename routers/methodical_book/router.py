@@ -20,7 +20,7 @@ methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_
 
 
 @methodical_book_router.get(
-    path='/chapters',
+    path='/',
     tags=['methodical_book'],
     response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
 )
@@ -47,7 +47,7 @@ async def get_chapter(
 
 
 @methodical_book_router.get(
-    path='/chapters/childrens',
+    path='/childrens',
     tags=['methodical_book'],
     response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
 )
@@ -71,7 +71,7 @@ async def get_child_chapters(
 
 
 @methodical_book_router.post(
-    path='/chapters',
+    path='/',
     tags=['methodical_book']
 )
 async def create_chapter_methodical_book(
@@ -111,7 +111,7 @@ async def create_chapter_methodical_book(
 
 
 @methodical_book_router.put(
-    path='/chapters/file',
+    path='/file',
     tags=['methodical_book']
 )
 async def chapter_upload_file(
@@ -149,7 +149,7 @@ async def chapter_upload_file(
     )
 
 @methodical_book_router.get(
-    path='/chapters/file',
+    path='/file',
     tags=['methodical_book']
 )
 async def get_chapter_file(
