@@ -11,9 +11,12 @@ from database.cruds import CRUDManagerSQL, SongCruds
 from typing import List, Optional, Annotated
 from schemas.responses import ResponseData, Meta, ResponseDelete
 
-song_router = APIRouter(prefix='/songs', tags=['all_song_methods'])
+song_router = APIRouter(prefix='/songs', tags=['song_methods'])
 
-@song_router.post(path='/', tags=['song'])
+@song_router.post(
+    path='/',
+    tags=['song']
+)
 async def insert_song(
         song: Annotated[song_schemes.SongCreate, Body(
             description="Тело песни"
@@ -48,7 +51,7 @@ async def insert_song(
 
 
 @song_router.get(
-    '/',
+    path='/',
     tags=['song'],
     response_model=ResponseData[song_schemes.SongResponse]
 )
@@ -107,7 +110,10 @@ async def search_songs_by_title(
     )
 
 
-@song_router.put('/', tags=['song'])
+@song_router.put(
+    path='/',
+    tags=['song']
+)
 async def update_song_by_id(
         song_id: Annotated[int, Query(
             description="Id песни"
@@ -197,7 +203,10 @@ async def get_childs_categories(
     )
 
 
-@song_router.post('/categories', tags=['category'])
+@song_router.post(
+    path='/categories',
+    tags=['category']
+)
 async def insert_category(
         category: Annotated[song_schemes.CategorySongCreate, Body()]
 ) -> JSONResponse:
@@ -229,7 +238,10 @@ async def insert_category(
     )
 
 
-@song_router.put('/categories/', tags=['category'])
+@song_router.put(
+    path='/categories',
+    tags=['category']
+)
 async def update_category(
     category_id: Annotated[int, Query(
         description="Id категории"
@@ -242,7 +254,10 @@ async def update_category(
     pass
 
 
-@song_router.delete('/categories/', tags=['category'])
+@song_router.delete(
+    path='/categories/',
+    tags=['category']
+)
 async def delete_category(
         category_id: Annotated[int, Query(
             description="Id категории"
