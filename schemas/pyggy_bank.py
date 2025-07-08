@@ -69,15 +69,15 @@ class PiggyBankGameCreate(PiggyBankBaseStructureCreate):
 
     type_id: Union[List[int], int]
 
-    # class Config:
-    #     json_schema_extra = {
-    #         "example": {
-    #             "title": "Поймай меня если сможешь",
-    #             "description": "Увлекательная игра на скорость и реакцию. Участники разбиваются на две команды: 'убегающие' и 'догоняющие'. Цель 'догоняющих' - поймать всех 'убегающих' за отведенное время. Игра развивает ловкость, стратегическое мышление и командную работу.",
-    #             "file_path": '/home/1.docx',
-    #             "type_id": 1
-    #         }
-    #     }
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "Поймай меня если сможешь",
+                "description": "Увлекательная игра на скорость и реакцию.",
+                "group_id": [1],
+                "type_id": [1]
+            }
+        }
 
 
 class PiggyBankGameResponse(BaseModel):
