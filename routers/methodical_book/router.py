@@ -47,7 +47,7 @@ async def get_chapter(
 
 
 @methodical_book_router.get(
-    path='/childrens',
+    path='/childrens/',
     tags=['methodical_book'],
     response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
 )
@@ -111,7 +111,7 @@ async def create_chapter_methodical_book(
 
 
 @methodical_book_router.put(
-    path='/file',
+    path='/file/',
     tags=['methodical_book']
 )
 async def chapter_upload_file(
@@ -149,7 +149,7 @@ async def chapter_upload_file(
     )
 
 @methodical_book_router.get(
-    path='/file',
+    path='/file/',
     tags=['methodical_book']
 )
 async def get_chapter_file(
