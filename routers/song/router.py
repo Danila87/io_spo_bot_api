@@ -90,7 +90,7 @@ async def get_songs(
     )
 
 @song_router.get(
-    path='/search',
+    path='/search/',
     tags=['song'],
     response_model=ResponseData[song_schemes.SongResponse]
 )
@@ -154,8 +154,8 @@ async def delete_song_by_id(
 
 
 @song_router.get(
-    path='/categories',
-    tags=['category'],
+    path='/categories/',
+    tags=['song_category'],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
 async def get_categories(
@@ -180,8 +180,8 @@ async def get_categories(
     )
 
 @song_router.get(
-    path='/categories/childrens',
-    tags=['category'],
+    path='/categories/childrens/',
+    tags=['song_category'],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
 async def get_childs_categories(
@@ -204,8 +204,8 @@ async def get_childs_categories(
 
 
 @song_router.post(
-    path='/categories',
-    tags=['category']
+    path='/categories/',
+    tags=['song_category']
 )
 async def insert_category(
         category: Annotated[song_schemes.CategorySongCreate, Body()]
@@ -239,8 +239,8 @@ async def insert_category(
 
 
 @song_router.put(
-    path='/categories',
-    tags=['category']
+    path='/categories/',
+    tags=['song_category']
 )
 async def update_category(
     category_id: Annotated[int, Query(
@@ -256,7 +256,7 @@ async def update_category(
 
 @song_router.delete(
     path='/categories/',
-    tags=['category']
+    tags=['song_category']
 )
 async def delete_category(
         category_id: Annotated[int, Query(
