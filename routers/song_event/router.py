@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Body
 
 from database.models import SongEvents
 from schemas import song_event as se_schemas
@@ -15,8 +15,12 @@ song_event_router = APIRouter(prefix='/song-events', tags=['song_events'])
     response_model=ResponseData[se_schemas.SongEventResponse],
 )
 async def get_song_events(
-    row_ids: Annotated[List[int], Query()] = None,
-    is_actual: bool = False
+    row_ids: Annotated[List[int], Query(
+        description="Список id событий"
+    )] = None,
+    is_actual: Annotated[bool, Query(
+        description="Вернуть только актуальные события"
+    )] = False
 ):
 
     data = await SongEventCruds.get_song_event(
@@ -42,7 +46,9 @@ async def get_song_events(
     response_model=ResponseCreate[se_schemas.SongEventCreateResponse]
 )
 async def create_song_event(
-    song_event: se_schemas.SongEventCreateWithSong
+    song_event: Annotated[se_schemas.SongEventCreateWithSong, Body(
+        description="Данные для создания события"
+    )]
 ):
     data = await SongEventCruds.insert_song_event(
         song_event=song_event
@@ -56,7 +62,11 @@ async def create_song_event(
     path='/',
     response_model=ResponseDelete
 )
-async def delete_song_event(row_id: int):
+async def delete_song_event(
+    row_id: Annotated[int, Query(
+        description="Id события"
+    )]
+):
 
     is_delete = await CRUDManagerSQL.delete_data(
         model=SongEvents,
