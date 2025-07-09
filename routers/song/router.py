@@ -11,6 +11,9 @@ from database.cruds import CRUDManagerSQL, SongCruds
 from typing import List, Optional, Annotated
 from schemas.responses import ResponseData, Meta, ResponseDelete
 
+SONG_CATEGORY_TAG = 'song_category'
+SONG_TAG = 'song'
+
 song_router = APIRouter(prefix='/songs', tags=['song_methods'])
 
 @song_router.post(
@@ -52,7 +55,7 @@ async def insert_song(
 
 @song_router.get(
     path='/',
-    tags=['song'],
+    tags=[SONG_TAG],
     response_model=ResponseData[song_schemes.SongResponse]
 )
 async def get_songs(
@@ -91,7 +94,7 @@ async def get_songs(
 
 @song_router.get(
     path='/search/',
-    tags=['song'],
+    tags=[SONG_TAG],
     response_model=ResponseData[song_schemes.SongResponse]
 )
 async def search_songs_by_title(
@@ -112,7 +115,7 @@ async def search_songs_by_title(
 
 @song_router.put(
     path='/',
-    tags=['song']
+    tags=[SONG_TAG]
 )
 async def update_song_by_id(
         song_id: Annotated[int, Query(
@@ -132,7 +135,7 @@ async def update_song_by_id(
 
 @song_router.delete(
     path='/',
-    tags=['song'],
+    tags=[SONG_TAG],
     response_model=ResponseDelete
 )
 async def delete_song_by_id(
@@ -155,7 +158,7 @@ async def delete_song_by_id(
 
 @song_router.get(
     path='/categories/',
-    tags=['song_category'],
+    tags=[SONG_CATEGORY_TAG],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
 async def get_categories(
@@ -181,7 +184,7 @@ async def get_categories(
 
 @song_router.get(
     path='/categories/childrens/',
-    tags=['song_category'],
+    tags=[SONG_CATEGORY_TAG],
     response_model=ResponseData[song_schemes.CategorySongResponse]
 )
 async def get_childs_categories(
@@ -205,7 +208,7 @@ async def get_childs_categories(
 
 @song_router.post(
     path='/categories/',
-    tags=['song_category']
+    tags=[SONG_CATEGORY_TAG]
 )
 async def insert_category(
         category: Annotated[song_schemes.CategorySongCreate, Body()]
@@ -240,7 +243,7 @@ async def insert_category(
 
 @song_router.put(
     path='/categories/',
-    tags=['song_category']
+    tags=[SONG_CATEGORY_TAG]
 )
 async def update_category(
     category_id: Annotated[int, Query(
@@ -256,7 +259,7 @@ async def update_category(
 
 @song_router.delete(
     path='/categories/',
-    tags=['song_category']
+    tags=[SONG_CATEGORY_TAG]
 )
 async def delete_category(
         category_id: Annotated[int, Query(

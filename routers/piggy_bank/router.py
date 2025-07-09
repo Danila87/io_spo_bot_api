@@ -16,11 +16,17 @@ from typing import Annotated, List, Optional
 
 from common_lib.file_storage.file_manager import file_manager
 
+PIGGY_BANK_GROUP_TAG = 'piggy_bank_group'
+PIGGY_BANK_KTD_TAG = 'piggy_bank_ktd'
+PIGGY_BANK_LEGEND_TAG = 'piggy_bank_legend'
+PIGGY_BANK_GAME_TAG = 'piggy_bank_game'
+PIGGY_BANK_TYPE_GAME_TAG = 'piggy_bank_type_game'
+
 piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank_methods'])
 
 @piggy_bank_router.get(
     path='/groups/',
-    tags=['piggy_bank_groups'],
+    tags=[PIGGY_BANK_GROUP_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankGroupResponse],
 )
 async def get_groups(
@@ -42,7 +48,7 @@ async def get_groups(
 
 @piggy_bank_router.post(
     path='/groups/',
-    tags=['piggy_bank_groups']
+    tags=[PIGGY_BANK_GROUP_TAG]
 )
 async def create_group(
         group: Annotated[pb_schemes.PiggyBankGroupCreate, Body()]
@@ -77,7 +83,7 @@ async def create_group(
 
 @piggy_bank_router.get(
     path='/types_game/',
-    tags=['piggy_bank_types_game'],
+    tags=[PIGGY_BANK_TYPE_GAME_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankTypeGameResponse]
 )
 async def get_types_game(
@@ -99,7 +105,7 @@ async def get_types_game(
 
 @piggy_bank_router.post(
     path='/types_game/',
-    tags=['piggy_bank_types_game']
+    tags=[PIGGY_BANK_TYPE_GAME_TAG]
 )
 async def create_type_game(
         type_game: Annotated[pb_schemes.PiggyBankTypeGameCreate, Body()]
@@ -134,7 +140,7 @@ async def create_type_game(
 
 @piggy_bank_router.get(
     path='/games/',
-    tags=['piggy_bank_games'],
+    tags=[PIGGY_BANK_GAME_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankGameResponse]
 )
 async def get_games(
@@ -167,7 +173,7 @@ async def get_games(
 
 @piggy_bank_router.get(
     path='/games/by_type_group/',
-    tags=['piggy_bank_games'],
+    tags=[PIGGY_BANK_GAME_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankGameResponse]
 )
 async def get_games_by_type_group(
@@ -191,7 +197,7 @@ async def get_games_by_type_group(
 
 @piggy_bank_router.post(
     path='/games/',
-    tags=['piggy_bank_games'],
+    tags=[PIGGY_BANK_GAME_TAG],
     response_model=ResponseCreate[pb_schemes.PiggyBankGameResponse]
 )
 async def insert_game(
@@ -227,7 +233,7 @@ async def insert_game(
 
 @piggy_bank_router.put(
     path='/games/file/',
-    tags=['piggy_bank_games']
+    tags=[PIGGY_BANK_GAME_TAG]
 )
 async def load_game_file(
         game_id: Annotated[int, Query(
@@ -267,7 +273,8 @@ async def load_game_file(
 
 @piggy_bank_router.get(
     path='/games/file/',
-    tags=['piggy_bank_games'])
+    tags=[PIGGY_BANK_GAME_TAG]
+)
 async def get_game_file(
         game_id: Annotated[int, Query(
             description="Id игры"
@@ -305,7 +312,7 @@ async def get_game_file(
 
 @piggy_bank_router.get(
     path='/legends/',
-    tags=['piggy_bank_legends'],
+    tags=[PIGGY_BANK_LEGEND_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def get_legends(
@@ -338,7 +345,7 @@ async def get_legends(
 
 @piggy_bank_router.get(
     path='/legends/by_group/',
-    tags=['piggy_bank_legends'],
+    tags=[PIGGY_BANK_LEGEND_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def get_legends_by_group(
@@ -357,7 +364,7 @@ async def get_legends_by_group(
 
 @piggy_bank_router.post(
     path='/legends/',
-    tags=['piggy_bank_legends'],
+    tags=[PIGGY_BANK_LEGEND_TAG],
     response_model=ResponseCreate[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def create_legend(
@@ -392,7 +399,7 @@ async def create_legend(
 
 @piggy_bank_router.put(
     path='/legends/file/',
-    tags=['piggy_bank_legends']
+    tags=[PIGGY_BANK_LEGEND_TAG]
 )
 async def load_legend_file(
         legend_id: Annotated[int, Query(
@@ -431,7 +438,7 @@ async def load_legend_file(
 
 @piggy_bank_router.get(
     path='/legends/file/',
-    tags=['piggy_bank_legends']
+    tags=[PIGGY_BANK_LEGEND_TAG]
 )
 async def get_legend_file(
         legend_id: Annotated[int, Query(
@@ -470,7 +477,7 @@ async def get_legend_file(
 
 @piggy_bank_router.get(
     path='/ktd/',
-    tags=['piggy_bank_ktd'],
+    tags=[PIGGY_BANK_KTD_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def get_ktd_by_id(
@@ -504,7 +511,7 @@ async def get_ktd_by_id(
 
 @piggy_bank_router.post(
     path='/ktd/',
-    tags=['piggy_bank_ktd'],
+    tags=[PIGGY_BANK_KTD_TAG],
     response_model=ResponseCreate[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def create_ktd(
@@ -539,7 +546,7 @@ async def create_ktd(
 
 @piggy_bank_router.get(
     path='/ktd/by_group/',
-    tags=['piggy_bank_ktd'],
+    tags=[PIGGY_BANK_KTD_TAG],
     response_model=ResponseData[pb_schemes.PiggyBankBaseStructureResponse]
 )
 async def get_ktd_by_group(
@@ -559,7 +566,7 @@ async def get_ktd_by_group(
 
 @piggy_bank_router.put(
     path='/ktd/file/',
-    tags=['piggy_bank_ktd']
+    tags=[PIGGY_BANK_KTD_TAG]
 )
 async def load_ktd_file(
         ktd_id: Annotated[int, Query(
@@ -599,7 +606,7 @@ async def load_ktd_file(
 
 @piggy_bank_router.get(
     path='/ktd/file/',
-    tags=['piggy_bank_ktd']
+    tags=[PIGGY_BANK_KTD_TAG]
 )
 async def get_ktd_file(
         ktd_id: Annotated[int, Query(
