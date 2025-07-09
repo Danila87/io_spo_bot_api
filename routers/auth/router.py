@@ -1,4 +1,6 @@
-from fastapi.params import Depends
+from typing import Annotated
+
+from fastapi.params import Depends, Body
 from starlette.responses import JSONResponse
 
 from . import auth
@@ -14,7 +16,7 @@ from config import SECRET_KEY_REFRESH, SECRET_KEY
 
 auth_router = APIRouter(
     prefix='/auth',
-    tags=['auth']
+    tags=['authentication']
 )
 
 async def get_user(
@@ -44,7 +46,9 @@ async def get_user(
         **user_db[0].to_dict()
     )
 
-@auth_router.post('/register')
+@auth_router.post(
+    path='/register/',
+)
 async def registration(
         user: UserCreate
 ):
@@ -74,28 +78,40 @@ async def registration(
             content={'message': 'Пользователь создан'}
         )
 
-@auth_router.post('/login')
+@auth_router.post(
+    path='/login/',
+    response_model=TokenPair
+)
 async def login(
         user: UserResponse = Depends(get_user)
 ):
-    return {
-        'access_token': auth.create_jwt_token(
+    access_token = auth.create_jwt_token(
             key=SECRET_KEY,
             data=SubjectData(
                 login=user.login,
                 email=user.email
             )
-        ),
-        'refresh_token': auth.create_jwt_token(
+    )
+
+    refresh_token = auth.create_jwt_token(
             key=SECRET_KEY_REFRESH,
             exp_duration=240
         )
-    }
 
-@auth_router.post('/update_token')
+    return TokenPair(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@auth_router.post(
+    path='/update_token/',
+    response_model=TokenPair
+)
 async def update_login(
-        tokens: TokenPair
-) -> TokenPair:
+        tokens: Annotated[TokenPair, Body(
+            description="Пара токенов"
+        )]
+):
 
     if auth.verify_jwt_token(tokens.refresh_token, SECRET_KEY_REFRESH):
         new_access_token = auth.create_jwt_token(
