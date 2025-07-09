@@ -271,7 +271,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
     async def insert_request(
             cls,
             request_type_title: str,
-            body: RequestCreate
+            body: Union[List[RequestCreate], RequestCreate]
     ):
         if not (request_type := await cls.get_data(
             model=RequestTypes,
@@ -281,13 +281,23 @@ class CRUDManagerSQL(CRUDManagerInterface):
         )):
             return
 
-        request_data = dict(body)
-        request_data['id_request_type'] = request_type[0].id
+        if isinstance(body, List):
+            for request in body:
+                request_data = dict(request)
+                request_data['id_request_type'] = request_type[0].id
 
-        await cls.insert_data(
-            model=Requests,
-            body=dict(request_data)
-        )
+                await cls.insert_data(
+                    model=Requests,
+                    body=dict(request_data)
+                )
+        else:
+            request_data = dict(body)
+            request_data['id_request_type'] = request_type[0].id
+
+            await cls.insert_data(
+                model=Requests,
+                body=dict(request_data)
+            )
 
 
 class SongCruds(CRUDManagerSQL):
@@ -323,7 +333,7 @@ class KTDCruds(CRUDManagerSQL):
     async def insert_ktd_transaction(
             cls,
             data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> Optional[int]:
+    ) -> Dict:
 
         async with postgres_db.db_session() as session:
 
@@ -348,12 +358,12 @@ class KTDCruds(CRUDManagerSQL):
 
                     await session.flush()
 
-                    return item_data.id
+                    return item_data.to_dict()
 
             except Exception as e:
                 logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
                 await session.rollback()
-                return None
+                return {}
 
     @classmethod
     async def get_ktd_by_group(
@@ -378,7 +388,7 @@ class LegendCruds(CRUDManagerSQL):
     async def insert_legend_transaction(
             cls,
             data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> Optional[int]:
+    ) -> Dict:
 
         async with postgres_db.db_session() as session:
 
@@ -403,7 +413,7 @@ class LegendCruds(CRUDManagerSQL):
 
                     await session.flush()
 
-                    return item_data.id
+                    return item_data.to_dict()
 
             except Exception as e:
                 logger.error(f'При создании легенды возникла ошибка: {e}')
@@ -434,7 +444,7 @@ class GameCruds(CRUDManagerSQL):
     async def insert_game_transaction(
             cls,
             game: pb_schemes.PiggyBankGameCreate
-    ) -> Optional[int]:
+    ) -> Dict:
 
         async with postgres_db.db_session() as session:
 
@@ -467,11 +477,11 @@ class GameCruds(CRUDManagerSQL):
 
                     await session.flush()
 
-                    return game_data.id
+                    return game_data.to_dict()
 
             except Exception as e:
                 logger.error(f'Возникла ошибка при создании игры {e}')
-                return None
+                return {}
 
 
     @classmethod

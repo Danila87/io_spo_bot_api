@@ -1,55 +1,70 @@
 import urllib
-from typing import List
+from typing import List, Annotated, Optional
 
 from fastapi import APIRouter
+from fastapi.params import Query
+
 from io import BytesIO
 from common_lib.api_clients.grafana_client import grafana_client
 from fastapi.responses import FileResponse, Response
 
 from schemas.dashboard import Dashboard, Visualization
+from schemas.responses import ResponseData, Meta
 
-statistic_router = APIRouter(prefix='/statistic', tags=['piggy_bank'])
-
-
-@statistic_router.get(
-    path='/dashboards',
-    tags=['statistic'],
-    response_model=List[Dashboard]
-)
-async def get_all_dashboard():
-    return await grafana_client.get_dashboards()
+statistic_router = APIRouter(prefix='/statistic', tags=['statistic'])
 
 
 @statistic_router.get(
-    path='/dashboards/bot',
-    tags=['statistic'],
-    response_model=List[Dashboard]
+    path='/dashboards/',
+    response_model=ResponseData[Dashboard],
+    summary='Получить дашборды'
 )
-async def get_bot_dashboard():
-    all_dashboards = await grafana_client.get_dashboards()
-    return [dashboard for dashboard in all_dashboards if 'bot_view' in dashboard.tags]
-
-
-@statistic_router.get(
-    path='/dashboards/{dashboard_uid}/visualisations',
-    tags=['statistic'],
-    response_model=List[Visualization]
-)
-async def get_visualisations_by_dashboard(
-        dashboard_uid: str
+async def get_all_dashboard(
+    tag: Annotated[Optional[str], Query(
+        description="Список тегов"
+    )] = None
 ):
-    return await grafana_client.get_visualizations(
-        dashboard_uid=dashboard_uid
+    dashboards = await grafana_client.get_dashboards()
+
+    if tag:
+        dashboards = [dashboard for dashboard in dashboards if tag in dashboard.tags]
+
+    return ResponseData(
+        data=dashboards,
+        meta=Meta(total=len(dashboards))
     )
 
 
 @statistic_router.get(
-    path='/dashboards/{dashboard_uid}/visualisations/{panel_id}/img',
-    tags=['statistic']
+    path='/dashboards/visualisations/',
+    response_model=ResponseData[Visualization],
+    summary='Получить визуализации дашборда'
+)
+async def get_visualisations_by_dashboard(
+        dashboard_uid: Annotated[str, Query(
+            description="UID дашборда"
+        )]
+):
+    visualisations =  await grafana_client.get_visualizations(
+        dashboard_uid=dashboard_uid
+    )
+    return ResponseData(
+        data=visualisations,
+        meta=Meta(total=len(visualisations))
+    )
+
+
+@statistic_router.get(
+    path='/dashboards/visualisations/img/',
+    summary='Получить img визуализации дашборда'
 )
 async def get_visualisation_img(
-        dashboard_uid: str,
-        panel_id: int
+        dashboard_uid: Annotated[str, Query(
+            description="UID дашборда"
+        )],
+        panel_id: Annotated[int, Query(
+            description="ID панели"
+        )],
 ):
     file_bytes = await grafana_client.get_visualizations_to_img(
         dashboard_uid=dashboard_uid,
@@ -67,20 +82,15 @@ async def get_visualisation_img(
             'filename': filename
         }
     )
-    # return Response(
-    #     content=file_bytes,
-    #     media_type="image/png",
-    #     headers={
-    #         "Content-Disposition": "attachment; filename=image.png"
-    #     }
-    # )
 
 @statistic_router.get(
-    path='/dashboards/{dashboard_uid}/img',
-    tags=['statistic'],
+    path='/dashboards/img/',
+    summary='Получить img дашборда'
 )
 async def get_dashboard_img(
-        dashboard_uid: str
+        dashboard_uid: Annotated[str, Query(
+            description="UID дашборда"
+        )]
 ):
     data = await grafana_client.get_dashboard_to_img(
         dashboard_uid=dashboard_uid,

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, TypeVar, Generic, Optional
+from typing import List, TypeVar, Generic, Optional, Union
 
 T = TypeVar("T")
 
@@ -14,7 +14,7 @@ class ResponseData(BaseModel, Generic[T]):
 
 
 class ResponseCreate(BaseModel, Generic[T]):
-    data: T
+    data: Union[List[T], T]
     message: Optional[str] = 'Запись успешно создана.'
     meta: Optional[Meta] = None
 

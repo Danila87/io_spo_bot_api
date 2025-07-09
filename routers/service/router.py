@@ -1,6 +1,7 @@
-from typing import List, Dict
+from typing import List, Dict, Annotated
 
 from fastapi import APIRouter, HTTPException
+from fastapi.params import Body, Query
 from starlette.responses import JSONResponse
 
 from database.models import Reviews
@@ -8,6 +9,7 @@ from schemas import schemes
 
 from database import models
 from database.cruds import CRUDManagerSQL
+from schemas.responses import ResponseCreate, ResponseData, Meta
 from schemas.service import ReviewCreate, ReviewResponse
 from schemas.schemes import SearchData
 
@@ -17,9 +19,14 @@ router_service = APIRouter(
 )
 
 
-@router_service.post('/check_user', response_model=schemes.User)
+@router_service.post(
+    path='/check_user/',
+    summary='Проверка пользователя на существование',
+)
 async def check_user(
-        user: schemes.User
+        user: Annotated[schemes.User, Body(
+            description="Тело пользователя"
+        )]
 ) -> JSONResponse:
 
     if len(await CRUDManagerSQL.get_data(
@@ -49,9 +56,14 @@ async def check_user(
     )
 
 
-@router_service.post('/refactor_text_song')
+@router_service.post(
+    path='/refactor_text_song/',
+    summary='Перевод строки в слэшн',
+)
 def refactor_text_song(
-        text_song: str
+        text_song: Annotated[str, Query(
+            description="Текст песни"
+        )]
 ) -> str:
 
     lines = text_song.split('\n')
@@ -59,9 +71,14 @@ def refactor_text_song(
 
     return formatted_text
 
-@router_service.get('/search_by_title', tags=['service'])
+@router_service.get(
+    path='/search_by_title/',
+    summary='Поиск данных по названию',
+)
 async def search_by_title(
-        title: str
+        title: Annotated[str, Query(
+            description="Текст для поиска"
+        )]
 ) -> Dict[str, List[SearchData]]:
 
         data = await CRUDManagerSQL.search_by_title(title_search=title)
@@ -72,9 +89,15 @@ async def search_by_title(
             ] for key, items in data.items()
         }
 
-@router_service.post('/reviews/', tags=['reviews', 'service'])
+@router_service.post(
+    path='/reviews/',
+    tags=['reviews'],
+    summary='Создание отзыва'
+)
 async def insert_review(
-        review: ReviewCreate
+        review: Annotated[ReviewCreate, Body(
+            description="Тело отзыва"
+        )]
 ):
     if not await CRUDManagerSQL.insert_data(
         model=Reviews,
@@ -90,25 +113,30 @@ async def insert_review(
         content={'message': 'Отзыв успешно создан.'}
     )
 
-@router_service.get('/reviews/', tags=['reviews', 'service'])
+
+@router_service.get(
+    path='/reviews/',
+    tags=['reviews'],
+    response_model=ResponseData[ReviewResponse],
+    summary='Получение отзывов'
+)
 async def get_all_reviews(
-        only_new: int = 0
-) -> List[ReviewResponse]:
-    """
-    only_new - Получить только новые отзывы. 1-да, 0-нет. По умолчанию 0
-    """
+        is_only_new: Annotated[bool, Query(
+            description="Получить только новые отзывы."
+        )] = False
+):
 
     row_filter = {
         'looked_status': 0
-    } if only_new == 1 else None
+    } if not is_only_new else None
 
-    data = await CRUDManagerSQL.get_data(
+    reviews = await CRUDManagerSQL.get_data(
         model=Reviews,
         row_filter=row_filter
     )
 
-    if only_new == 1:
-        for review in data:
+    if is_only_new:
+        for review in reviews:
             await CRUDManagerSQL.update_data(
                 model=Reviews,
                 row_id=review.id,
@@ -117,4 +145,7 @@ async def get_all_reviews(
                 }
             )
 
-    return [ReviewResponse(**item.to_dict()) for item in data]
+    return ResponseData(
+        data=reviews,
+        meta=Meta(total=len(reviews))
+    )
