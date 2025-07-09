@@ -16,7 +16,8 @@ statistic_router = APIRouter(prefix='/statistic', tags=['statistic'])
 
 @statistic_router.get(
     path='/dashboards/',
-    response_model=ResponseData[Dashboard]
+    response_model=ResponseData[Dashboard],
+    summary='Получить дашборды'
 )
 async def get_all_dashboard(
     tag: Annotated[Optional[str], Query(
@@ -36,7 +37,8 @@ async def get_all_dashboard(
 
 @statistic_router.get(
     path='/dashboards/visualisations/',
-    response_model=ResponseData[Visualization]
+    response_model=ResponseData[Visualization],
+    summary='Получить визуализации дашборда'
 )
 async def get_visualisations_by_dashboard(
         dashboard_uid: Annotated[str, Query(
@@ -54,6 +56,7 @@ async def get_visualisations_by_dashboard(
 
 @statistic_router.get(
     path='/dashboards/visualisations/img/',
+    summary='Получить img визуализации дашборда'
 )
 async def get_visualisation_img(
         dashboard_uid: Annotated[str, Query(
@@ -82,6 +85,7 @@ async def get_visualisation_img(
 
 @statistic_router.get(
     path='/dashboards/img/',
+    summary='Получить img дашборда'
 )
 async def get_dashboard_img(
         dashboard_uid: Annotated[str, Query(

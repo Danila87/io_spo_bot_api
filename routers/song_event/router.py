@@ -13,6 +13,7 @@ song_event_router = APIRouter(prefix='/song-events', tags=['song_events'])
 @song_event_router.get(
     path='/',
     response_model=ResponseData[se_schemas.SongEventResponse],
+    summary="Получить музыкальные события",
 )
 async def get_song_events(
     row_ids: Annotated[List[int], Query(
@@ -43,7 +44,8 @@ async def get_song_events(
 
 @song_event_router.post(
     path='/',
-    response_model=ResponseCreate[se_schemas.SongEventCreateResponse]
+    response_model=ResponseCreate[se_schemas.SongEventCreateResponse],
+    summary="Создать музыкальное событие"
 )
 async def create_song_event(
     song_event: Annotated[se_schemas.SongEventCreateWithSong, Body(
@@ -60,7 +62,8 @@ async def create_song_event(
 
 @song_event_router.delete(
     path='/',
-    response_model=ResponseDelete
+    response_model=ResponseDelete,
+    summary="Удалить музыкальное событие"
 )
 async def delete_song_event(
     row_id: Annotated[int, Query(

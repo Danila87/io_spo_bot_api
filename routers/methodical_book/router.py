@@ -21,7 +21,8 @@ methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_
 
 @methodical_book_router.get(
     path='/',
-    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
+    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse],
+    summary='Получить главы книги'
 )
 async def get_chapter(
     id_chapter: Annotated[List[int], Query(
@@ -47,7 +48,8 @@ async def get_chapter(
 
 @methodical_book_router.get(
     path='/childrens/',
-    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse]
+    response_model=ResponseData[mb_schemes.MethodicalChaptersResponse],
+    summary='Получить дочерние главы глав'
 )
 async def get_child_chapters(
         id_chapter: Annotated[int, Query(
@@ -70,6 +72,7 @@ async def get_child_chapters(
 
 @methodical_book_router.post(
     path='/',
+    summary='Добавить главу'
 )
 async def create_chapter_methodical_book(
     chapter_data: Annotated[mb_schemes.MethodicalChapterCreate, Body(
@@ -109,6 +112,7 @@ async def create_chapter_methodical_book(
 
 @methodical_book_router.put(
     path='/file/',
+    summary='Добавить/Обновить файл к главе'
 )
 async def chapter_upload_file(
         chapter_id: Annotated[int, Query(
@@ -146,6 +150,7 @@ async def chapter_upload_file(
 
 @methodical_book_router.get(
     path='/file/',
+    summary='Получить файл главы'
 )
 async def get_chapter_file(
         chapter_id: Annotated[int, Query(
