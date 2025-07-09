@@ -18,8 +18,7 @@ app.include_router(
     )
 
 app.include_router(
-    router=router_service,
-    #dependencies=[Depends(verify_user)]
+    router=song_event_router,
 )
 
 app.include_router(
@@ -33,15 +32,16 @@ app.include_router(
 )
 
 app.include_router(
-    router=auth_router
-)
-
-app.include_router(
     router=statistic_router
 )
 
 app.include_router(
-    router=song_event_router,
+    router=router_service,
+    #dependencies=[Depends(verify_user)]
+)
+
+app.include_router(
+    router=auth_router
 )
 
 Instrumentator().instrument(app).expose(app)
