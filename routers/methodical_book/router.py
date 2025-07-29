@@ -14,7 +14,7 @@ from database.cruds import CRUDManagerSQL
 from typing import Annotated, List, Optional
 
 from schemas.service import AdditionalPath
-from schemas.responses import ResponseData, Meta, ResponseDelete
+from schemas.responses import ResponseData, Meta, ResponseDelete, ResponseCreate
 
 methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_book'])
 
@@ -72,41 +72,40 @@ async def get_child_chapters(
 
 @methodical_book_router.post(
     path='/',
-    summary='Добавить главу'
+    summary='Добавить главу',
+    response_model=ResponseCreate[mb_schemes.MethodicalChaptersResponse]
 )
 async def create_chapter_methodical_book(
-    chapter_data: Annotated[mb_schemes.MethodicalChapterCreate, Body(
+    chapters: Annotated[List[mb_schemes.MethodicalChapterCreate], Body(
         description="Тело главы",
     )],
-) -> JSONResponse:
+):
 
-    if await CRUDManagerSQL.get_data(
-        model=models.MethodicalBookChapters,
-        row_filter={
-            'title': chapter_data.title,
-            'parent_id': chapter_data.parent_id
-        }
-    ):
-        raise HTTPException(
-            status_code=500,
-            detail='Данная глава уже существует в БД'
-        )
-
-    if not await CRUDManagerSQL.insert_data(
+    for chapter in chapters:
+        if await CRUDManagerSQL.get_data(
             model=models.MethodicalBookChapters,
-            body={
-                'title': chapter_data.title,
-                'parent_id': chapter_data.parent_id,
+            row_filter={
+                'title': chapter.title,
+                'parent_id': chapter.parent_id
             }
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail='Данная глава уже существует в БД'
+            )
+
+    if new_chapters := await CRUDManagerSQL.insert_data(
+            model=models.MethodicalBookChapters,
+            body=[chapter.model_dump() for chapter in chapters]
     ):
-        raise HTTPException(
-            status_code=500,
-            detail={'message': 'Ошибка сохранения'}
+        return ResponseCreate(
+            data=new_chapters,
+            meta=Meta(total=len(new_chapters))
         )
 
-    return JSONResponse(
-        status_code=201,
-        content={'message': 'Запись сохранена'}
+    raise HTTPException(
+        status_code=500,
+        detail={'message': 'Ошибка сохранения'}
     )
 
 

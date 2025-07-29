@@ -91,12 +91,23 @@ class CRUDManagerSQL(CRUDManagerInterface):
     def check_body(
             cls,
             model: Type[DeclarativeBase],
-            body: Dict
+            body: Union[List[Dict], Dict]
     ) -> List[str]:
+        """
+        Проверяет наличие переданных ключей в модели
+        """
         model_keys = cls.get_model_columns(
             model=model
         )
-        return [key for key, value in body.items() if key not in model_keys]
+        error_keys = []
+
+        if isinstance(body, List):
+            for row in body:
+                error_keys.extend([key for key, value in row.items() if key not in model_keys])
+        else:
+            error_keys.extend([key for key, value in body.items() if key not in model_keys])
+
+        return error_keys
 
 
     @staticmethod
@@ -158,9 +169,9 @@ class CRUDManagerSQL(CRUDManagerInterface):
     async def delete_data(
             cls,
             model: Type[DeclarativeBase],
-            row_id: Optional[Union[int | List[int]]] = None,
+            row_id: Union[int | List[int]],
             row_filter: Optional[Dict] = None
-    ) -> bool:
+    ) -> List[int]:
 
         async with postgres_db.db_session() as session:
             rows = await cls.get_data(
@@ -170,19 +181,22 @@ class CRUDManagerSQL(CRUDManagerInterface):
             )
 
             if not rows:
-                return False
+                return []
 
             for row in rows:
                 await session.delete(row)
 
             try:
                 await session.commit()
-                return True
+                if isinstance(row_id, List):
+                    return row_id
+                else:
+                    return [row_id]
 
             except Exception as e:
                 logger.error(f'Возникла ошибка при удалении {e}')
                 session.rollback()
-                return False
+                return []
 
 
     @classmethod
@@ -191,23 +205,20 @@ class CRUDManagerSQL(CRUDManagerInterface):
             cls,
             model: Type[DeclarativeBase],
             body: Union[List[Dict], Dict]
-    ) -> bool:
+    ) -> List[Dict]:
+        data = [model(**item) for item in (body if isinstance(body, list) else [body])]
 
         async with postgres_db.db_session() as session:
-            if isinstance(body, List):
-                data = [model(**row) for row in body]
-            else:
-                data = [model(**body)]
-            session.add_all(data)
+            async with session.begin():
+                try:
+                    session.add_all(data)
+                    await session.flush()
+                    return [row.to_dict() for row in data]
 
-            try:
-                await session.commit()
-                return True
+                except Exception as e:
+                    logger.error(f'Возникала непредвиденная ошибка при вставке {e}')
+                    return []
 
-            except Exception as e:
-                logger.error(f'Возникала непредвиденная ошибка при вставке {e}')
-                await session.rollback()
-                return False
 
     @classmethod
     @check_body_decorator
@@ -238,7 +249,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
     async def search_by_title(
             cls,
             title_search
-    ):
+    ) -> Dict:
         async def get_data_with_key(key, model, column_view):
             # Получаем данные а затем фильтруем их по поисковой строке
             data = await cls.get_data(model=model)
@@ -281,22 +292,17 @@ class CRUDManagerSQL(CRUDManagerInterface):
         )):
             return
 
-        if isinstance(body, List):
-            for request in body:
-                request_data = dict(request)
-                request_data['id_request_type'] = request_type[0].id
+        if isinstance(body, Dict):
+            body = [body]
 
-                await cls.insert_data(
-                    model=Requests,
-                    body=dict(request_data)
-                )
-        else:
-            request_data = dict(body)
+
+        for request in body:
+            request_data = dict(request)
             request_data['id_request_type'] = request_type[0].id
 
             await cls.insert_data(
                 model=Requests,
-                body=dict(request_data)
+                body=request_data
             )
 
 
@@ -332,38 +338,38 @@ class KTDCruds(CRUDManagerSQL):
     @classmethod
     async def insert_ktd_transaction(
             cls,
-            data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> Dict:
-
+            ktds: List[pb_schemes.PiggyBankBaseStructureCreate]
+    ) -> List[Dict]:
+        new_ktds = []
         async with postgres_db.db_session() as session:
 
             try:
                 async with session.begin():
-                    item_data = PiggyBankKTD(
-                        title=data.title,
-                        description=data.description,
-                    )
-
-                    session.add(item_data)
-                    await session.flush()
-                    await session.refresh(item_data)
-
-                    for g_id in data.group_id:
-                        session.add(
-                            PiggyBankGroupsForKTD(
-                                group_id=g_id,
-                                ktd_id=item_data.id
-                            )
+                    for data in ktds:
+                        item_data = PiggyBankKTD(
+                            title=data.title,
+                            description=data.description,
                         )
 
-                    await session.flush()
+                        session.add(item_data)
 
-                    return item_data.to_dict()
+                        session.add_all(
+                            [
+                                PiggyBankGroupsForKTD(
+                                    group_id=g_id,
+                                    ktd_id=item_data.id
+                                ) for g_id in data.group_id
+                            ]
+                        )
+
+                        await session.flush()
+                        new_ktds.append(item_data.to_dict())
 
             except Exception as e:
                 logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
                 await session.rollback()
-                return {}
+
+        return new_ktds
 
     @classmethod
     async def get_ktd_by_group(
@@ -387,38 +393,38 @@ class LegendCruds(CRUDManagerSQL):
     @classmethod
     async def insert_legend_transaction(
             cls,
-            data: pb_schemes.PiggyBankBaseStructureCreate
-    ) -> Dict:
-
+            legends: List[pb_schemes.PiggyBankBaseStructureCreate]
+    ) -> List[Dict]:
+        new_legends = []
         async with postgres_db.db_session() as session:
 
             try:
                 async with session.begin():
-                    item_data = PiggyBankLegends(
-                        title=data.title,
-                        description=data.description,
-                    )
-
-                    session.add(item_data)
-                    await session.flush()
-                    await session.refresh(item_data)
-
-                    for g_id in data.group_id:
-                        session.add(
-                            PiggyBankGroupsForLegend(
-                                group_id=g_id,
-                                legend_id=item_data.id
-                            )
+                    for data in legends:
+                        item_data = PiggyBankLegends(
+                            title=data.title,
+                            description=data.description,
                         )
 
-                    await session.flush()
+                        session.add(item_data)
 
-                    return item_data.to_dict()
+                        session.add_all(
+                            [
+                                PiggyBankGroupsForLegend(
+                                    group_id=g_id,
+                                    legend_id=item_data.id
+                                )
+                                for g_id in data.group_id
+                            ]
+                        )
+
+                        await session.flush()
+                        new_legends.append(item_data.to_dict())
 
             except Exception as e:
                 logger.error(f'При создании легенды возникла ошибка: {e}')
-                await session.rollback()
-                return
+
+        return new_legends
 
     @classmethod
     async def get_legends_by_group(
@@ -443,46 +449,49 @@ class GameCruds(CRUDManagerSQL):
     @classmethod
     async def insert_game_transaction(
             cls,
-            game: pb_schemes.PiggyBankGameCreate
-    ) -> Dict:
+            games: List[pb_schemes.PiggyBankGameCreate]
+    ) -> List[Dict]:
+        new_games = []
 
         async with postgres_db.db_session() as session:
 
             try:
                 async with session.begin():
-                    game_data = PiggyBankGames(
-                        title=game.title,
-                        description=game.description
-                    )
 
-                    session.add(game_data)
-                    await session.flush()
-                    await session.refresh(game_data)
-
-                    for type_id in game.type_id:
-                        session.add(
-                            PiggyBankTypesGamesForGame(
-                                type_id=type_id,
-                                game_id=game_data.id
-                            )
+                    for game in games:
+                        game_data = PiggyBankGames(
+                            title=game.title,
+                            description=game.description
                         )
 
-                    for group_id in game.group_id:
-                        session.add(
-                            PiggyBankGroupForGame(
-                                group_id=group_id,
-                                game_id=game_data.id
-                            )
+                        session.add(game_data)
+
+                        session.add_all(
+                            [
+                                PiggyBankTypesGamesForGame(
+                                    type_id=type_id,
+                                    game_id=game_data.id
+                                ) for type_id in game.type_id
+                            ]
                         )
 
-                    await session.flush()
+                        session.add_all(
+                            [
+                                PiggyBankGroupForGame(
+                                    group_id=group_id,
+                                    game_id=game_data.id
+                                ) for group_id in game.group_id
+                            ]
+                        )
+                        await session.flush()
+                        new_games.append(game_data.to_dict())
 
-                    return game_data.to_dict()
+                        await session.flush()
 
             except Exception as e:
                 logger.error(f'Возникла ошибка при создании игры {e}')
-                return {}
 
+        return new_games
 
     @classmethod
     async def get_game_by_group_type(
@@ -550,44 +559,47 @@ class SongEventCruds(CRUDManagerSQL):
     @classmethod
     async def insert_song_event(
         cls,
-        song_event: SongEventCreateWithSong
-    ) -> Dict:
+        song_events: List[SongEventCreateWithSong]
+    ) -> List[Dict]:
 
-        song_ids = song_event.song_ids if song_event.song_ids else []
-        song_event = SongEventCreate(
-            **song_event.model_dump()
-        )
-
-        song_event.end_dt = song_event.start_dt + timedelta(days=song_event.duration)
-
-        event_data = SongEvents(
-            **song_event.model_dump()
-        )
+        new_events = []
 
         async with postgres_db.db_session() as session:
 
             try:
                 async with session.begin():
-                    session.add(event_data)
-                    await session.flush()
-                    await session.refresh(event_data)
 
-                    for song_id in song_ids:
-                        session.add(
-                            SongsForSongsEvent(
-                                song_id=song_id,
-                                event_id=event_data.id
-                            )
+                    for song_event in song_events:
+                        song_ids = song_event.song_ids if song_event.song_ids else []
+                        song_event = SongEventCreate(
+                            **song_event.model_dump()
                         )
 
-                    await session.flush()
+                        song_event.end_dt = song_event.start_dt + timedelta(days=song_event.duration)
 
-                    return event_data.to_dict()
+                        event_data = SongEvents(
+                            **song_event.model_dump()
+                        )
+
+                        session.add(event_data)
+                        await session.flush()
+
+                        session.add_all(
+                            [
+                                SongsForSongsEvent(
+                                    song_id=song_id,
+                                    event_id=event_data.id
+                                ) for song_id in song_ids
+                            ]
+                        )
+
+                        new_events.append(event_data.to_dict())
+                        await session.flush()
 
             except Exception as e:
                 logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
-                await session.rollback()
-                return None
+
+        return new_events
 
     @classmethod
     async def get_song_event(
@@ -613,3 +625,4 @@ class SongEventCruds(CRUDManagerSQL):
             data = result.scalars().all()
 
             return data
+
