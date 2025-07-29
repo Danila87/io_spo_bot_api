@@ -249,7 +249,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
     async def search_by_title(
             cls,
             title_search
-    ):
+    ) -> Dict:
         async def get_data_with_key(key, model, column_view):
             # Получаем данные а затем фильтруем их по поисковой строке
             data = await cls.get_data(model=model)
