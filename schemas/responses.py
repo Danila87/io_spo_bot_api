@@ -21,4 +21,5 @@ class ResponseCreate(BaseModel, Generic[T]):
 
 class ResponseDelete(BaseModel):
     message: Optional[str] = 'Запись успешно удалена'
+    deleted_ids: Optional[List[int]] = None
     meta: Optional[Meta] = None
