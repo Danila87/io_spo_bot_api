@@ -30,7 +30,7 @@ async def get_song_events(
     )
     song_events = []
     for song_event in data:
-        song_ids = [song.id for song in song_event.rel_songs]
+        song_ids = [song.song_id for song in song_event.rel_songs]
 
         song_event = song_event.to_dict()
         song_event['song_ids'] = song_ids
@@ -48,12 +48,12 @@ async def get_song_events(
     summary="Создать музыкальное событие"
 )
 async def create_song_event(
-    song_event: Annotated[se_schemas.SongEventCreateWithSong, Body(
+    song_event: Annotated[List[se_schemas.SongEventCreateWithSong], Body(
         description="Данные для создания события"
     )]
 ):
     data = await SongEventCruds.insert_song_event(
-        song_event=song_event
+        song_events=song_event
     )
 
     return ResponseCreate(
@@ -63,19 +63,20 @@ async def create_song_event(
 @song_event_router.delete(
     path='/',
     response_model=ResponseDelete,
-    summary="Удалить музыкальное событие"
+    summary="Удалить музыкальное событие",
 )
 async def delete_song_event(
-    row_id: Annotated[int, Query(
+    event_ids: Annotated[List[int], Query(
         description="Id события"
     )]
 ):
 
-    is_delete = await CRUDManagerSQL.delete_data(
+    deleted_ids = await CRUDManagerSQL.delete_data(
         model=SongEvents,
-        row_id=row_id
+        row_id=event_ids
     )
 
     return ResponseDelete(
-        message='Запись успешно удалена.' if is_delete else 'Возникла ошибка при удалении записи.'
+        data=deleted_ids,
+        meta=Meta(total=len(deleted_ids))
     )

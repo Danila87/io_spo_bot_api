@@ -1,12 +1,12 @@
 import urllib.parse
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.params import Query, Body
 
 from starlette.responses import JSONResponse, Response
 
 from schemas.service import RequestCreate, AdditionalPath
-from schemas.responses import ResponseData, Meta, ResponseDelete, ResponseCreate
+from schemas.responses import ResponseData, Meta, ResponseCreate
 from schemas import pyggy_bank as pb_schemes
 
 from database import models
@@ -16,6 +16,8 @@ from typing import Annotated, List, Optional
 
 from common_lib.file_storage.file_manager import file_manager
 
+from common_lib.background_tasks import insert_user_requests
+
 PIGGY_BANK_GROUP_TAG = 'piggy_bank_group'
 PIGGY_BANK_KTD_TAG = 'piggy_bank_ktd'
 PIGGY_BANK_LEGEND_TAG = 'piggy_bank_legend'
@@ -24,6 +26,7 @@ PIGGY_BANK_TYPE_GAME_TAG = 'piggy_bank_type_game'
 
 piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank_methods'])
 
+
 @piggy_bank_router.get(
     path='/groups/',
     tags=[PIGGY_BANK_GROUP_TAG],
@@ -31,9 +34,12 @@ piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank_methods'])
     summary='Получить группы детей'
 )
 async def get_groups(
-    group_ids: Annotated[List[int], Query(
-        description="Список id групп"
-    )] = None
+    group_ids: Annotated[
+        List[int],
+        Query(
+            description="Список id групп"
+        )
+    ] = None
 ):
 
     groups = await CRUDManagerSQL.get_data(
@@ -50,31 +56,38 @@ async def get_groups(
 @piggy_bank_router.post(
     path='/groups/',
     tags=[PIGGY_BANK_GROUP_TAG],
-    summary='Добавить группу детей'
+    summary='Добавить группу детей',
+    response_model=ResponseCreate[pb_schemes.PiggyBankGroupResponse]
 )
 async def create_group(
-        group: Annotated[pb_schemes.PiggyBankGroupCreate, Body()]
-) -> JSONResponse:
-
-    if await CRUDManagerSQL.get_data(
-        model=models.PiggyBankGroups,
-        row_filter={
-            'title': group.title
-        }
-    ):
-        raise HTTPException(
-            status_code=500,
-            detail='Данная группа уже есть в БД'
+    groups: Annotated[
+        List[pb_schemes.PiggyBankGroupCreate],
+        Body(
+            description="Тело группы"
         )
+    ]
+):
 
-    if await CRUDManagerSQL.insert_data(
+    for group in groups:
+        if await CRUDManagerSQL.get_data(
             model=models.PiggyBankGroups,
-            body=dict(group)
+            row_filter={
+                'title': group.title
+            }
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail='Данная группа уже есть в БД'
+            )
+
+    if new_groups := await CRUDManagerSQL.insert_data(
+            model=models.PiggyBankGroups,
+            body=[group.model_dump() for group in groups]
     ):
 
-        return JSONResponse(
-            status_code=201,
-            content={'message': 'Группа успешно добавлена'}
+        return ResponseCreate(
+            data=new_groups,
+            meta=Meta(total=len(new_groups))
         )
 
     raise HTTPException(
@@ -90,9 +103,12 @@ async def create_group(
     summary='Получить типы игр'
 )
 async def get_types_game(
-    type_game_ids: Annotated[List[int], Query(
-        description="Список id типов игр"
-    )] = None
+    type_game_ids: Annotated[
+        List[int],
+        Query(
+            description="Список id типов игр"
+        )
+    ] = None
 ):
 
     types_game = await CRUDManagerSQL.get_data(
@@ -109,33 +125,40 @@ async def get_types_game(
 @piggy_bank_router.post(
     path='/types_game/',
     tags=[PIGGY_BANK_TYPE_GAME_TAG],
-    summary='Добавить тип игры'
+    summary='Добавить тип игры',
+    response_model=ResponseCreate[pb_schemes.PiggyBankTypeGameResponse]
 )
 async def create_type_game(
-        type_game: Annotated[pb_schemes.PiggyBankTypeGameCreate, Body()]
-) -> JSONResponse:
-
-    if await CRUDManagerSQL.get_data(
-        model=models.PiggyBankTypesGame,
-        row_filter={
-            'title': type_game.title
-        }
-    ):
-        raise HTTPException(
-            status_code=500,
-            detail='Данный тип игры уже существует в БД'
+    types_game: Annotated[
+        List[pb_schemes.PiggyBankTypeGameCreate],
+        Body(
+            description="Тело типа игры"
         )
+    ]
+):
 
-    if await CRUDManagerSQL.insert_data(
+    for type_game in types_game:
+        if await CRUDManagerSQL.get_data(
             model=models.PiggyBankTypesGame,
-            body=dict(type_game)
+            row_filter={
+                'title': type_game.title
+            }
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail='Данный тип игры уже существует в БД'
+            )
+
+    if new_types_game := await CRUDManagerSQL.insert_data(
+            model=models.PiggyBankTypesGame,
+            body=[type_game.model_dump() for type_game in types_game]
     ):
 
-        return JSONResponse(
-            status_code=201,
-            content={'message': 'Тип игр успешно добавлен'}
-        )
+        return ResponseCreate(
+            data=new_types_game,
+            meta=Meta(total=len(types_game))
 
+        )
     raise HTTPException(
         status_code=500,
         detail='Произошла ошибка при создании'
@@ -149,30 +172,41 @@ async def create_type_game(
     summary='Получить игры'
 )
 async def get_games(
-        game_ids: Annotated[int, Query(
+    bg_task: BackgroundTasks,
+    game_ids: Annotated[
+        List[int],
+        Query(
             description="Id игр"
-        )] = None,
-        user_id: Annotated[Optional[int], Query(
+        )
+    ] = None,
+    tg_user_id: Annotated[
+        Optional[int],
+        Query(
             description="Id пользователя telegram"
-        )] = None
+        )
+    ] = None,
+    is_create_user_request: Annotated[
+        bool,
+        Query(
+            description="Создать записи в таблице запросов пользователей"
+        )
+    ] = False
 ):
-    songs = await CRUDManagerSQL.get_data(
-            model=models.PiggyBankGames,
-            row_id=game_ids
+    games = await CRUDManagerSQL.get_data(
+        model=models.PiggyBankGames,
+        row_id=game_ids
     )
 
-    # await CRUDManagerSQL.insert_request(
-    #     request_type_title='Игра',
-    #     body=RequestCreate(
-    #         id_content=data[0].id,
-    #         id_user=user_id,
-    #         content_display_value=data[0].title
-    #     )
-    # )
+    if is_create_user_request and tg_user_id:
+        bg_task.add_task(
+            func=insert_user_requests,
+            tg_user_id=tg_user_id,
+            data=games
+        )
 
     return ResponseData(
-        data=songs,
-        meta=Meta(total=len(songs))
+        data=games,
+        meta=Meta(total=len(games))
     )
 
 
@@ -183,14 +217,19 @@ async def get_games(
     summary='Получить игры по типу игры и группе детей'
 )
 async def get_games_by_type_group(
-        type_id: Annotated[int, Query(
-        description="Id типа игры"
-        )],
-        group_id: Annotated[int, Query(
+    type_id: Annotated[
+        int,
+        Query(
+            description="Id типа игры"
+        )
+    ],
+    group_id: Annotated[
+        int,
+        Query(
             description="Id группы детей"
-        )]
+        )
+    ]
 ):
-
     games = await GameCruds.get_game_by_group_type(
         group_id=group_id,
         type_id=type_id
@@ -208,28 +247,32 @@ async def get_games_by_type_group(
     summary='Добавить игру'
 )
 async def insert_game(
-        game_data: Annotated[pb_schemes.PiggyBankGameCreate, Body(
+    games: Annotated[
+        List[pb_schemes.PiggyBankGameCreate],
+        Body(
             description="Тело игры"
-        )]
+        )
+    ]
 ):
-
-    intersection_group_type_ids = await GameCruds.check_available_game(
-        title=game_data.title,
-        type_ids=game_data.type_id,
-        group_ids=game_data.group_id
-    )
-
-    if intersection_group_type_ids.group_ids and intersection_group_type_ids.type_ids:
-        raise HTTPException(
-            status_code=500,
-            detail='Игра с таким названием уже существует в БД и имеет те же типы и группы, что были переданы.'
+    for game in games:
+        intersection_group_type_ids = await GameCruds.check_available_game(
+            title=game.title,
+            type_ids=game.type_id,
+            group_ids=game.group_id
         )
 
-    if new_song_data := await GameCruds.insert_game_transaction(
-        game=game_data
+        if intersection_group_type_ids.group_ids and intersection_group_type_ids.type_ids:
+            raise HTTPException(
+                status_code=500,
+                detail='Игра с таким названием уже существует в БД и имеет те же типы и группы, что были переданы.'
+            )
+
+    if new_songs_data := await GameCruds.insert_game_transaction(
+        games=games
     ):
         return ResponseCreate(
-            data=new_song_data
+            data=new_songs_data,
+            meta=Meta(total=len(games))
         )
 
     raise HTTPException(
@@ -244,14 +287,19 @@ async def insert_game(
     summary='Добавить/Обновить файл к игре'
 )
 async def load_game_file(
-        game_id: Annotated[int, Query(
-        description="Id игры"
-        )],
-        file: Annotated[UploadFile, File(
+    game_id: Annotated[
+        int,
+        Query(
+            description="Id игры"
+        )
+    ],
+    file: Annotated[
+        UploadFile,
+        File(
             description="Файл для игры"
-        )]
+        )
+    ]
 ):
-
     if not await file_manager.save_file(
         file=file,
         additional_path=AdditionalPath.GAMES_PATH
@@ -285,9 +333,12 @@ async def load_game_file(
     summary='Получить файл игры'
 )
 async def get_game_file(
-        game_id: Annotated[int, Query(
+    game_id: Annotated[
+        int,
+        Query(
             description="Id игры"
-        )]
+        )
+    ]
 ) -> Response:
 
     if not (game := await CRUDManagerSQL.get_data(
@@ -326,26 +377,37 @@ async def get_game_file(
     summary='Получить легенды'
 )
 async def get_legends(
-    legend_ids: Annotated[List[int], Query(
-        description="Список id легенд"
-    )] = None,
-    user_id: Annotated[Optional[int], Query(
-        description="Id пользователя telegram"
-    )] = None
+    bg_task: BackgroundTasks,
+    legend_ids: Annotated[
+        List[int],
+        Query(
+            description="Список id легенд"
+        )
+    ] = None,
+    tg_user_id: Annotated[
+        Optional[int],
+        Query(
+            description="Id пользователя telegram"
+        )
+    ] = None,
+    is_create_user_request: Annotated[
+        bool,
+        Query(
+            description="Создать записи в таблице запросов пользователей"
+        )
+    ] = False
 ):
     legends = await CRUDManagerSQL.get_data(
         model=models.PiggyBankLegends,
         row_id=legend_ids,
     )
 
-    # await CRUDManagerSQL.insert_request(
-    #     request_type_title='Легенда',
-    #     body=RequestCreate(
-    #         id_content=data[0].id,
-    #         id_user=user_id,
-    #         content_display_value=data[0].title
-    #     )
-    # )
+    if is_create_user_request and tg_user_id:
+        bg_task.add_task(
+            func=insert_user_requests,
+            tg_user_id=tg_user_id,
+            data=legends
+        )
 
     return ResponseData(
         data=legends,
@@ -360,9 +422,12 @@ async def get_legends(
     summary='Получить легенды по группе детей'
 )
 async def get_legends_by_group(
-    group_id: Annotated[int, Query(
-        description="Id группы детей"
-    )]
+    group_id: Annotated[
+        int,
+        Query(
+            description="Id группы детей"
+        )
+    ]
 ):
     legends = await LegendCruds.get_legends_by_group(
         group_id=group_id
@@ -377,30 +442,34 @@ async def get_legends_by_group(
     path='/legends/',
     tags=[PIGGY_BANK_LEGEND_TAG],
     response_model=ResponseCreate[pb_schemes.PiggyBankBaseStructureResponse],
-    summary='Создать легенду'
+    summary='Создать легенду',
 )
 async def create_legend(
-        legend: Annotated[pb_schemes.PiggyBankBaseStructureCreate, Body(
+    legends: Annotated[
+        List[pb_schemes.PiggyBankBaseStructureCreate],
+        Body(
             description="Тело легенды"
-        )]
-):
-
-    if await CRUDManagerSQL.get_data(
-        model=models.PiggyBankLegends,
-        row_filter={
-            'title': legend.title
-        }
-    ):
-        raise HTTPException(
-            status_code=500,
-            detail='Данная легенда уже существует в БД'
         )
+    ]
+):
+    for legend in legends:
+        if await CRUDManagerSQL.get_data(
+            model=models.PiggyBankLegends,
+            row_filter={
+                'title': legend.title
+            }
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail='Данная легенда уже существует в БД'
+            )
 
-    if new_legend_data := await LegendCruds.insert_legend_transaction(
-            data=legend
+    if new_legends_data := await LegendCruds.insert_legend_transaction(
+            legends=legends
     ):
         return ResponseCreate(
-            data=new_legend_data
+            data=new_legends_data,
+            meta=Meta(total=len(new_legends_data))
         )
 
     raise HTTPException(
@@ -415,12 +484,18 @@ async def create_legend(
     summary='Добавить/Обновить файл легенды'
 )
 async def load_legend_file(
-        legend_id: Annotated[int, Query(
+    legend_id: Annotated[
+        int,
+        Query(
             description="Id легенды"
-        )],
-        file: Annotated[UploadFile, File(
+        )
+    ],
+    file: Annotated[
+        UploadFile,
+        File(
             description="Файл для легенды"
-        )]
+        )
+    ]
 ):
     if not await file_manager.save_file(
         file=file,
@@ -455,9 +530,12 @@ async def load_legend_file(
     summary='Получить файл легенды'
 )
 async def get_legend_file(
-        legend_id: Annotated[int, Query(
+    legend_id: Annotated[
+        int,
+        Query(
             description="Id легенды"
-        )]
+        )
+    ]
 ) -> Response:
 
     if not (legend := await CRUDManagerSQL.get_data(
@@ -496,12 +574,25 @@ async def get_legend_file(
     summary='Получить КТД'
 )
 async def get_ktd_by_id(
-        ktd_ids: Annotated[List[int], Query(
+    bg_task: BackgroundTasks,
+    ktd_ids: Annotated[
+        List[int],
+        Query(
             description="Список id КТД"
-        )] = None,
-        user_id: Annotated[Optional[int], Query(
+        )
+    ] = None,
+    tg_user_id: Annotated[
+        Optional[int],
+        Query(
             description="Id пользователя telegram"
-        )] = None
+        )
+    ] = None,
+    is_create_user_request: Annotated[
+            bool,
+            Query(
+                description="Создать записи в таблице запросов пользователей"
+            )
+        ] = False
 ):
 
     ktds = await CRUDManagerSQL.get_data(
@@ -509,14 +600,12 @@ async def get_ktd_by_id(
         row_id=ktd_ids
     )
 
-    # await CRUDManagerSQL.insert_request(
-    #     request_type_title='КТД',
-    #     body=RequestCreate(
-    #         id_content=data[0].id,
-    #         id_user=user_id,
-    #         content_display_value=data[0].title
-    #     )
-    # )
+    if is_create_user_request and tg_user_id:
+        bg_task.add_task(
+            func=insert_user_requests,
+            tg_user_id=tg_user_id,
+            data=ktds
+        )
 
     return ResponseData(
         data=ktds,
@@ -531,27 +620,31 @@ async def get_ktd_by_id(
     summary="Создать КТД"
 )
 async def create_ktd(
-    ktd: Annotated[pb_schemes.PiggyBankBaseStructureCreate, Body(
-        description="Данные для создания КТД"
-    )]
-):
-
-    if await CRUDManagerSQL.get_data(
-        model=models.PiggyBankKTD,
-        row_filter={
-            'title': ktd.title,
-        }
-    ):
-        raise HTTPException(
-            status_code=500,
-            detail='Данное КТД уже существует в БД'
+    ktds: Annotated[
+        List[pb_schemes.PiggyBankBaseStructureCreate],
+        Body(
+            description="Данные для создания КТД"
         )
+    ]
+):
+    for ktd in ktds:
+        if await CRUDManagerSQL.get_data(
+            model=models.PiggyBankKTD,
+            row_filter={
+                'title': ktd.title,
+            }
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail='Данное КТД уже существует в БД'
+            )
 
-    if new_ktd_data := await KTDCruds.insert_ktd_transaction(
-            data=ktd
+    if new_ktds_data := await KTDCruds.insert_ktd_transaction(
+            ktds=ktds
     ):
         return ResponseCreate(
-            data=new_ktd_data
+            data=new_ktds_data,
+            meta=Meta(total=len(new_ktds_data))
         )
 
     raise HTTPException(
@@ -567,9 +660,12 @@ async def create_ktd(
     summary='Получить КТД по группе детей'
 )
 async def get_ktd_by_group(
-        group_id: Annotated[int, Query(
+    group_id: Annotated[
+        int,
+        Query(
             description="Id группы детей"
-        )]
+        )
+    ]
 ):
     ktds = await KTDCruds.get_ktd_by_group(
         group_id=group_id
@@ -587,12 +683,18 @@ async def get_ktd_by_group(
     summary='Загрузить/Обновить файл КТД'
 )
 async def load_ktd_file(
-        ktd_id: Annotated[int, Query(
+    ktd_id: Annotated[
+        int,
+        Query(
             description="Id КТД"
-        )],
-        file: Annotated[UploadFile, File(
+        )
+    ],
+    file: Annotated[
+        UploadFile,
+        File(
             description="Файл для КТД"
-        )]
+        )
+    ]
 ):
     if not await file_manager.save_file(
             file=file,
@@ -628,9 +730,12 @@ async def load_ktd_file(
     summary='Получить файл КТД'
 )
 async def get_ktd_file(
-        ktd_id: Annotated[int, Query(
+    ktd_id: Annotated[
+        int,
+        Query(
             description="Id КТД"
-        )]
+        )
+    ]
 ) -> Response:
 
     if not (ktd := await CRUDManagerSQL.get_data(
