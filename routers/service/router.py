@@ -5,13 +5,12 @@ from fastapi.params import Body, Query
 from starlette.responses import JSONResponse
 
 from database.models import Reviews
-from schemas import schemes
+from schemas import service as sc_schemes
 
 from database import models
 from database.cruds import CRUDManagerSQL
-from schemas.responses import ResponseCreate, ResponseData, Meta
+from schemas.responses import ResponseData, Meta
 from schemas.service import ReviewCreate, ReviewResponse
-from schemas.schemes import SearchData
 
 router_service = APIRouter(
     prefix='/service',
@@ -24,7 +23,7 @@ router_service = APIRouter(
     summary='Проверка пользователя на существование',
 )
 async def check_user(
-        user: Annotated[schemes.User, Body(
+        user: Annotated[sc_schemes.TelegramUser, Body(
             description="Тело пользователя"
         )]
 ) -> JSONResponse:
@@ -71,6 +70,7 @@ def refactor_text_song(
 
     return formatted_text
 
+
 @router_service.get(
     path='/search_by_title/',
     summary='Поиск данных по названию',
@@ -79,15 +79,16 @@ async def search_by_title(
         title: Annotated[str, Query(
             description="Текст для поиска"
         )]
-) -> Dict[str, List[SearchData]]:
+) -> Dict[str, List[sc_schemes.SearchData]]:
 
         data = await CRUDManagerSQL.search_by_title(title_search=title)
 
         return {
             key: [
-                SearchData(**row.to_dict()) for row in items
+                sc_schemes.SearchData(**row.to_dict()) for row in items
             ] for key, items in data.items()
         }
+
 
 @router_service.post(
     path='/reviews/',

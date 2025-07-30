@@ -1,5 +1,4 @@
-from fastapi import UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class MethodicalChapterCreate(BaseModel):
@@ -7,16 +6,29 @@ class MethodicalChapterCreate(BaseModel):
     parent_id: int | None = None
     title: str
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
-                "title": "Глава 1.1 История ИО СПО",
-                "parent_id": 1
+                "parent_id": 1,
+                "title": "Глава 1"
             }
         }
+    )
 
 class MethodicalChaptersResponse(MethodicalChapterCreate):
 
     id: int
     file_path: str | None
 
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "parent_id": 1,
+                "title": "Глава 1",
+                "file_path": "/path/to/file.pdf"
+            }
+        }
+    )

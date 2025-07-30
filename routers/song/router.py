@@ -87,11 +87,11 @@ async def get_songs(
         )
     ] = None,
     is_create_user_request: Annotated[
-                bool,
-                Query(
-                    description="Создать записи в таблице запросов пользователей"
-                )
-            ] = False,
+        bool,
+        Query(
+            description="Создать записи в таблице запросов пользователей"
+        )
+    ] = False,
 ):
 
     row_filter = {"category": category_id} if category_id else None

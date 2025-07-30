@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class SongCreate(BaseModel):
@@ -13,8 +13,9 @@ class SongCreate(BaseModel):
     file_path: str | None = None
     category: int | None = None  # Это внешний ключ, посмотреть как сюда передавать только корректные значения
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "title": "Ангел света",
                 "title_search": "ангелсвета",
@@ -23,6 +24,7 @@ class SongCreate(BaseModel):
                 "category": 1
             }
         }
+    )
 
 class SongResponse(SongCreate):
 
@@ -32,8 +34,9 @@ class SongResponse(SongCreate):
 
     id: int
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "title": "Ангел света",
@@ -43,6 +46,7 @@ class SongResponse(SongCreate):
                 "category": 1
             }
         }
+    )
 
 
 class CategorySongCreate(BaseModel):
@@ -54,13 +58,15 @@ class CategorySongCreate(BaseModel):
     name: str
     parent_id: int | None = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "name": "Песни ИО СПО (Авторские)",
                 "parent_id": 1
             }
         }
+    )
 
 
 class CategorySongResponse(CategorySongCreate):
@@ -72,11 +78,34 @@ class CategorySongResponse(CategorySongCreate):
 
     id: int
 
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "name": "Песни ИО СПО (Авторские)",
+                "parent_id": 1
+            }
+        }
+    )
+
+
 class SongSearch(BaseModel):
 
     telegram_id: int = 1
     title_song: str
 
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "telegram_id": 1,
+                "title_song": "Ангел света"
+            }
+        }
+    )
+
 
 class SongsByCategoryResponse(CategorySongResponse):
     rel_songs: list[SongResponse]
+
