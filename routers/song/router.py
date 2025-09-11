@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Response
 from fastapi.params import Query, Body
 
 from schemas.service import RequestCreate
@@ -24,12 +24,12 @@ song_router = APIRouter(prefix='/songs', tags=['song_methods'])
     response_model=ResponseCreate[song_schemes.SongResponse]
 )
 async def insert_song(
-        songs: Annotated[
-            List[song_schemes.SongCreate],
-            Body(
-                description="Тело песни"
-            )
-        ]
+    songs: Annotated[
+        List[song_schemes.SongCreate],
+        Body(
+            description="Тело песни"
+        )
+    ]
 ):
 
     for song in songs:
@@ -68,6 +68,7 @@ async def insert_song(
 )
 async def get_songs(
     bg_task: BackgroundTasks,
+    response: Response,
     song_ids: Annotated[
         List[int],
         Query(
@@ -109,6 +110,8 @@ async def get_songs(
             data=songs
         )
 
+    response.headers['Content-Type'] = 'application/jsons'
+
     return ResponseData(
         data=songs,
         meta=Meta(total=len(songs))
@@ -145,18 +148,18 @@ async def search_songs_by_title(
     summary='Обновить песню'
 )
 async def update_song_by_id(
-        song_id: Annotated[
-            int,
-            Query(
-                description="Id песни"
-            )
-        ],
-        song: Annotated[
-            song_schemes.SongCreate,
-            Body(
-                description="Тело песни"
-            )
-        ]
+    song_id: Annotated[
+        int,
+        Query(
+            description="Id песни"
+        )
+    ],
+    song: Annotated[
+        song_schemes.SongCreate,
+        Body(
+            description="Тело песни"
+        )
+    ]
 ):
 
     return await CRUDManagerSQL.update_data(
@@ -204,14 +207,14 @@ async def get_categories(
             description="Id категорий"
         )
     ] = None,
-    only_parents: Annotated[
+    is_only_parents: Annotated[
         bool,
         Query(
             description="Вернуть категории у которых нет родителя. В случае true из переданных category_ids вернет только те, у которых нет родителя"
         )
     ] = False
 ):
-    row_filter = {"parent_id": None} if only_parents else {}
+    row_filter = {"parent_id": None} if is_only_parents else {}
 
     categories = await CRUDManagerSQL.get_data(
         model=models.CategorySong,
@@ -231,18 +234,18 @@ async def get_categories(
     summary='Получить дочерние категории категорий'
 )
 async def get_childs_categories(
-        id_category: Annotated[
-            int,
-            Query(
-                description="Id категории, детей которой нужно получить"
-            )
-        ] = None
+    category_id: Annotated[
+        int,
+        Query(
+            description="Id категории, детей которой нужно получить"
+        )
+    ] = None
 ):
 
     categories = await CRUDManagerSQL.get_data(
         model=models.CategorySong,
         row_filter={
-            'parent_id': id_category
+            'parent_id': category_id
         }
     )
 
@@ -259,12 +262,12 @@ async def get_childs_categories(
     response_model=ResponseCreate[song_schemes.CategorySongResponse]
 )
 async def insert_category(
-        categories: Annotated[
-            List[song_schemes.CategorySongCreate],
-            Body(
-                description="Тело категории"
-            )
-        ]
+    categories: Annotated[
+        List[song_schemes.CategorySongCreate],
+        Body(
+            description="Тело категории"
+        )
+    ]
 ):
 
     for category in categories:
@@ -319,12 +322,12 @@ async def update_category(
     response_model=ResponseDelete
 )
 async def delete_category(
-        category_ids: Annotated[
-            List[int],
-            Query(
-                description="Id категории"
-            )
-        ]
+    category_ids: Annotated[
+        List[int],
+        Query(
+            description="Id категории"
+        )
+    ]
 ):
 
     deleted_ids = await CRUDManagerSQL.delete_data(

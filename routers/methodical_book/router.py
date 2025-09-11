@@ -25,18 +25,18 @@ methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_
     summary='Получить главы книги'
 )
 async def get_chapter(
-    id_chapter: Annotated[List[int], Query(
+    chapter_ids: Annotated[List[int], Query(
         description="Список id категорий"
     )] = None,
-    only_parents: Annotated[bool, Query(
+    is_only_parents: Annotated[bool, Query(
         description="Вернуть главы у которых нет родителя."
     )] = False
 ):
-    row_filter = {"parent_id": None} if only_parents else {}
+    row_filter = {"parent_id": None} if is_only_parents else {}
 
     chapters = await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
-        row_id=id_chapter,
+        row_id=chapter_ids,
         row_filter=row_filter
     )
 
@@ -52,15 +52,15 @@ async def get_chapter(
     summary='Получить дочерние главы глав'
 )
 async def get_child_chapters(
-        id_chapter: Annotated[int, Query(
-            description="Id главы, детей которой нужно получить"
-        )]
+    chapter_id: Annotated[Optional[int], Query(
+        description="Id главы, детей которой нужно получить"
+    )] = None
 ):
 
     chapters = await CRUDManagerSQL.get_data(
         model=models.MethodicalBookChapters,
         row_filter={
-            'parent_id': id_chapter
+            'parent_id': chapter_id
         }
     )
 
@@ -114,12 +114,12 @@ async def create_chapter_methodical_book(
     summary='Добавить/Обновить файл к главе'
 )
 async def chapter_upload_file(
-        chapter_id: Annotated[int, Query(
-            description="Id главы"
-        )],
-        file: Annotated[UploadFile, File(
-            description="Файл для главы"
-        )]
+    chapter_id: Annotated[int, Query(
+        description="Id главы"
+    )],
+    file: Annotated[UploadFile, File(
+        description="Файл для главы"
+    )]
 ):
     if not await file_manager.save_file(
             file=file,
@@ -152,9 +152,9 @@ async def chapter_upload_file(
     summary='Получить файл главы'
 )
 async def get_chapter_file(
-        chapter_id: Annotated[int, Query(
-            description="Id главы"
-        )]
+    chapter_id: Annotated[int, Query(
+        description="Id главы"
+    )]
 ) -> Response:
 
     if not (chapter := await CRUDManagerSQL.get_data(

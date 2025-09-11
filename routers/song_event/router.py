@@ -16,7 +16,7 @@ song_event_router = APIRouter(prefix='/song-events', tags=['song_events'])
     summary="Получить музыкальные события",
 )
 async def get_song_events(
-    row_ids: Annotated[List[int], Query(
+    event_ids: Annotated[List[int], Query(
         description="Список id событий"
     )] = None,
     is_actual: Annotated[bool, Query(
@@ -25,7 +25,7 @@ async def get_song_events(
 ):
 
     data = await SongEventCruds.get_song_event(
-        row_id=row_ids,
+        row_id=event_ids,
         is_actual=is_actual
     )
     song_events = []
