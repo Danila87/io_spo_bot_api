@@ -1,16 +1,15 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Response
-from fastapi.params import Query, Body
+from typing import Annotated, List, Optional
 
-from schemas.service import RequestCreate
-from schemas import song as song_schemes
-
-from database import models
-from database.cruds import CRUDManagerSQL, SongCruds
-
-from typing import List, Optional, Annotated
-from schemas.responses import ResponseData, Meta, ResponseDelete, ResponseCreate
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from fastapi.params import Body, Query
 
 from common_lib.background_tasks import insert_user_requests
+from common_lib.logger import logger_router as logger
+from database import models
+from database.cruds import CRUDManagerSQL, SongCruds
+from schemas import song as song_schemes
+from schemas.responses import (Meta, ResponseCreate, ResponseData,
+                               ResponseDelete)
 
 SONG_CATEGORY_TAG = 'song_category'
 SONG_TAG = 'song'
@@ -40,6 +39,7 @@ async def insert_song(
                 'category': song.category,
             }
         ):
+            logger.warning(f'Попытка вставки существующей песни в БД {song}')
             raise HTTPException(
                 status_code=500,
                 detail=f'Данная песня уже существует в БД. Песня {song.title}'
@@ -277,6 +277,7 @@ async def insert_category(
                 'name': category.name
             }
         ):
+            logger.warning(f'Попытка вставки существующей категории в БД {category}')
             raise HTTPException(
                 status_code=500,
                 detail='Данная категория уже существует в БД'

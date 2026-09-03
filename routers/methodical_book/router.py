@@ -1,20 +1,17 @@
 import urllib.parse
+from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, UploadFile, Form, File, HTTPException
-from fastapi.params import Query, Body
-
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.params import Body, Query
 from starlette.responses import JSONResponse, Response
 
 from common_lib.file_storage.file_manager import file_manager
-from schemas import methodical_book as mb_schemes
-
+from common_lib.logger import logger_router as logger
 from database import models
 from database.cruds import CRUDManagerSQL
-
-from typing import Annotated, List, Optional
-
+from schemas import methodical_book as mb_schemes
+from schemas.responses import Meta, ResponseCreate, ResponseData
 from schemas.service import AdditionalPath
-from schemas.responses import ResponseData, Meta, ResponseDelete, ResponseCreate
 
 methodical_book_router = APIRouter(prefix='/methodical_book', tags=['methodical_book'])
 
@@ -89,6 +86,7 @@ async def create_chapter_methodical_book(
                 'parent_id': chapter.parent_id
             }
         ):
+            logger.warning(f'Попытка вставки существующей главы в БД. Глава: {chapter}')
             raise HTTPException(
                 status_code=500,
                 detail='Данная глава уже существует в БД'
@@ -125,6 +123,7 @@ async def chapter_upload_file(
             file=file,
             additional_path=AdditionalPath.METHODICAL_BOOKS_PATH
     ):
+        logger.error(f'Возникла ошибка при сохранении файла методической книги. Файл {file.filename}')
         raise HTTPException(
             status_code=500,
             detail='Возникла ошибка при сохранении файла'
@@ -137,6 +136,7 @@ async def chapter_upload_file(
             'file_path':  f'{AdditionalPath.METHODICAL_BOOKS_PATH.value}/{file.filename}',
         }
     ):
+        logger.error(f'Возникла ошибка при обновлении файла методической книги. Файл {file.filename}')
         raise HTTPException(
             status_code=500,
             detail={'message': 'Ошибка сохранения'}
@@ -161,12 +161,14 @@ async def get_chapter_file(
         model=models.MethodicalBookChapters,
         row_id=chapter_id
     )):
+        logger.warning(f'Попытка получения несуществующей главы. ID главы: {chapter_id}')
         raise HTTPException(
             status_code=404,
             detail='Не найдена глава с указанным id'
         )
 
     if (filepath := chapter[0].file_path) is None:
+        logger.warning(f'Попытка получения несуществующего файла. Путь к файлу: {filepath}')
         raise HTTPException(
             status_code=404,
             detail=f'Не найден связанный файл по пути {filepath}'

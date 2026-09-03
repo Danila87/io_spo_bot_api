@@ -10,7 +10,7 @@ from fastapi import UploadFile
 
 from schemas.service import AdditionalPath, FileResponse
 from .interface import FileStorageInterface
-from ..logger import logger
+from ..logger import logger_router as logger
 
 
 class LocalStorage(FileStorageInterface):

@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from common_lib.logger import logger
+from common_lib.logger import logger_router
 from .db_connection import postgres_db
 
 from schemas import pyggy_bank as pb_schemes
@@ -194,7 +194,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
                     return [row_id]
 
             except Exception as e:
-                logger.error(f'Возникла ошибка при удалении {e}')
+                logger_router.error(f'Возникла ошибка при удалении {e}')
                 session.rollback()
                 return []
 
@@ -216,7 +216,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
                     return [row.to_dict() for row in data]
 
                 except Exception as e:
-                    logger.error(f'Возникала непредвиденная ошибка при вставке {e}')
+                    logger_router.error(f'Возникала непредвиденная ошибка при вставке {e}')
                     return []
 
 
@@ -241,7 +241,7 @@ class CRUDManagerSQL(CRUDManagerInterface):
                 return True
 
             except Exception as e:
-                logger.error(f'Возникала непредвиденная ошибка при обновлении {e}')
+                logger_router.error(f'Возникала непредвиденная ошибка при обновлении {e}')
                 session.rollback()
                 return False
 
@@ -366,7 +366,7 @@ class KTDCruds(CRUDManagerSQL):
                         new_ktds.append(item_data.to_dict())
 
             except Exception as e:
-                logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
+                logger_router.error(f'Возникла неожиданная ошибка при создании КТД {e}')
                 await session.rollback()
 
         return new_ktds
@@ -422,7 +422,7 @@ class LegendCruds(CRUDManagerSQL):
                         new_legends.append(item_data.to_dict())
 
             except Exception as e:
-                logger.error(f'При создании легенды возникла ошибка: {e}')
+                logger_router.error(f'При создании легенды возникла ошибка: {e}')
 
         return new_legends
 
@@ -489,7 +489,7 @@ class GameCruds(CRUDManagerSQL):
                         await session.flush()
 
             except Exception as e:
-                logger.error(f'Возникла ошибка при создании игры {e}')
+                logger_router.error(f'Возникла ошибка при создании игры {e}')
 
         return new_games
 
@@ -597,7 +597,7 @@ class SongEventCruds(CRUDManagerSQL):
                         await session.flush()
 
             except Exception as e:
-                logger.error(f'Возникла неожиданная ошибка при создании КТД {e}')
+                logger_router.error(f'Возникла неожиданная ошибка при создании КТД {e}')
 
         return new_events
 

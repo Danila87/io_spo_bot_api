@@ -1,4 +1,5 @@
 import uvicorn
+import logging
 
 from fastapi import FastAPI
 
@@ -10,7 +11,9 @@ from routers.auth.router import auth_router
 from routers.statistic.router import statistic_router
 from routers.song_event. router import song_event_router
 from prometheus_fastapi_instrumentator import Instrumentator
+
 app = FastAPI()
+
 
 app.include_router(
     router=song_router,

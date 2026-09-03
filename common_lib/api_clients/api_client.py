@@ -7,7 +7,7 @@ from typing import Optional, Dict, Union
 
 from aiohttp.http import HTTPStatus
 
-from common_lib.logger import logger
+from common_lib.logger import logger_api_clients as logger
 
 
 class ApiClientBase:

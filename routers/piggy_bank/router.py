@@ -1,28 +1,26 @@
 import urllib.parse
-
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.params import Query, Body
-
-from starlette.responses import JSONResponse, Response
-
-from schemas.service import RequestCreate, AdditionalPath
-from schemas.responses import ResponseData, Meta, ResponseCreate
-from schemas import pyggy_bank as pb_schemes
-
-from database import models
-from database.cruds import CRUDManagerSQL, LegendCruds, KTDCruds, GameCruds
-
 from typing import Annotated, List, Optional
 
-from common_lib.file_storage.file_manager import file_manager
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi.params import Body, Query
+from starlette.responses import JSONResponse, Response
 
 from common_lib.background_tasks import insert_user_requests
+from common_lib.file_storage.file_manager import file_manager
+from common_lib.logger import logger_router as logger
+from database import models
+from database.cruds import CRUDManagerSQL, GameCruds, KTDCruds, LegendCruds
+from schemas import pyggy_bank as pb_schemes
+from schemas.responses import Meta, ResponseCreate, ResponseData
+from schemas.service import AdditionalPath
+
 
 PIGGY_BANK_GROUP_TAG = 'piggy_bank_group'
 PIGGY_BANK_KTD_TAG = 'piggy_bank_ktd'
 PIGGY_BANK_LEGEND_TAG = 'piggy_bank_legend'
 PIGGY_BANK_GAME_TAG = 'piggy_bank_game'
 PIGGY_BANK_TYPE_GAME_TAG = 'piggy_bank_type_game'
+
 
 piggy_bank_router = APIRouter(prefix='/piggy_bank', tags=['piggy_bank_methods'])
 
@@ -75,6 +73,7 @@ async def create_group(
                 'title': group.title
             }
         ):
+            logger.warning(f'Попытка вставки существующей группы в БД. Группа: {group}')
             raise HTTPException(
                 status_code=500,
                 detail='Данная группа уже есть в БД'
@@ -144,6 +143,7 @@ async def create_type_game(
                 'title': type_game.title
             }
         ):
+            logger.warning(f'Попытка вставки существующего типа игры в БД. Тип игры: {type_game}')
             raise HTTPException(
                 status_code=500,
                 detail='Данный тип игры уже существует в БД'
@@ -262,6 +262,7 @@ async def insert_game(
         )
 
         if intersection_group_type_ids.group_ids and intersection_group_type_ids.type_ids:
+            logger.warning(f'Попытка вставки существующей игры в БД. Название игры: {game.title}')
             raise HTTPException(
                 status_code=500,
                 detail='Игра с таким названием уже существует в БД и имеет те же типы и группы, что были переданы.'
@@ -304,6 +305,7 @@ async def load_game_file(
         file=file,
         additional_path=AdditionalPath.GAMES_PATH
     ):
+        logger.error(f'Возникла ошибка при сохранении файла игры. Файл {file.filename}')
         raise HTTPException(
             status_code=500,
             detail='Возникла ошибка при сохранении файла'
@@ -316,6 +318,7 @@ async def load_game_file(
                 'file_path': f'{AdditionalPath.GAMES_PATH.value}/{file.filename}',
             }
     ):
+        logger.error(f'Возникла ошибка при обновлении файла игры. Файл {file.filename}')
         raise HTTPException(
             status_code=500,
             detail={'message': 'Ошибка сохранения'}

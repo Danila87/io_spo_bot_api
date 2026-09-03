@@ -10,9 +10,9 @@ from starlette.datastructures import UploadFile
 from .interface import FileStorageInterface
 from schemas.service import FileResponse, AdditionalPath
 
-from common_lib.logger import logger
+from common_lib.logger import logger_router
 
-from config import S3_SSL_CERT
+# from config import S3_SSL_CERT
 
 class S3Storage(FileStorageInterface):
 
@@ -28,7 +28,7 @@ class S3Storage(FileStorageInterface):
          "endpoint_url": endpoint_url,
          "aws_access_key_id": access_key,
          "aws_secret_access_key": secret_key,
-         "verify": False if not S3_SSL_CERT else os.path.expanduser(S3_SSL_CERT),
+         #"verify": False if not S3_SSL_CERT else os.path.expanduser(S3_SSL_CERT),
       }
 
       self.bucket_name = bucket_name
@@ -58,7 +58,7 @@ class S3Storage(FileStorageInterface):
             )
 
       except ClientError as e:
-         logger.error(f"Ошибка при скачивании файла: {e}")
+         logger_router.error(f"Ошибка при скачивании файла: {e}")
 
    async def save_file(
            self,
@@ -80,7 +80,7 @@ class S3Storage(FileStorageInterface):
          return True
 
       except ClientError as e:
-         logger.error(f"Ошибка при сохранении: {e}")
+         logger_router.error(f"Ошибка при сохранении: {e}")
          return False
 
    async def save_file_from_str(
